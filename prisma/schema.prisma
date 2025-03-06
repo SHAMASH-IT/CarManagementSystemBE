@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum Status {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+ 
+enum Role {
+  ADMIN
+  USER
+}
+ 
+model Service {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String
+  price       Decimal
+  parking     Parking[]
+  appointments Appointment[]
+}
+ 
+model User {
+  id    Int    @id @default(autoincrement())
+  name  String
+  email String @unique
+  hash  String
+  phone String
+  role  Role   @default(USER)
+  vehicles Vehicle[]
+  orders   Order[]
+  appointments Appointment[]
+}
+ 
+model Vehicle {
+  id           Int     @id @default(autoincrement())
+  brand        String
+  model        String
+  year         Int
+  registration String
+  userId       Int
+  user         User    @relation(fields: [userId], references: [id])
+  positions    Position[]
+}
+ 
+model Parking {
+  id          Int     @id @default(autoincrement())
+  name        String
+  status      Status
+  serviceId   Int
+  service     Service  @relation(fields: [serviceId], references: [id])
+  locations   Location[]
+}
+ 
+model Location {
+  id         Int        @id @default(autoincrement())
+  name       String
+  status     Status
+  parkingId  Int
+  parking    Parking    @relation(fields: [parkingId], references: [id])
+  positions  Position[]
+}
+ 
+model Position {
+  id         Int       @id @default(autoincrement())
+  locationId Int
+  location   Location  @relation(fields: [locationId], references: [id])
+  vehicleId  Int
+  vehicle    Vehicle   @relation(fields: [vehicleId], references: [id])
+}
+ 
+model Appointment {
+  id          Int       @id @default(autoincrement())
+  date        DateTime
+  time        DateTime
+  status      Status
+  serviceId   Int
+  service     Service   @relation(fields: [serviceId], references: [id])
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  vehicleId   Int
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+}
+ 
+model Category {
+  id     Int     @id @default(autoincrement())
+  name   String
+  pieces Piece[]
+}
+ 
+model Piece {
+  id          Int       @id @default(autoincrement())
+  name        String
+  stock       Int
+  threshold   Int
+  price       Float
+  categoryId  Int
+  category    Category   @relation(fields: [categoryId], references: [id])
+  orders      Order[]
+  interventions Intervention[]
+}
+ 
+model Intervention {
+  id              Int          @id @default(autoincrement())
+  startDate       DateTime
+  endDate         DateTime
+  status          Status
+  appointmentId   Int
+  appointment     Appointment  @relation(fields: [appointmentId], references: [id])
+  pieceId         Int
+  piece           Piece        @relation(fields: [pieceId], references: [id])
+}
+ 
+model Order {
+  id          Int     @id @default(autoincrement())
+  date        DateTime
+  status      Status
+  quantity    Int
+  pieceId     Int
+  piece       Piece   @relation(fields: [pieceId], references: [id])
+  userId      Int
+  user        User    @relation(fields: [userId], references: [id])
+}

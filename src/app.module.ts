@@ -11,7 +11,7 @@ import { InterventionModule } from './models/intervention/intervention.module';
 import { OrderModule } from './models/order/order.module';
 import { PieceModule } from './models/piece/piece.module';
 import { CategoryModule } from './models/category/category.module';
-import { AdminModule } from './models/admin/admin.module';
+import { AdminModule } from './models/auth/admin.module';
 import { ProviderModule } from './models/provider/provider.module';
 import { ClientModule } from './models/client/client.module';
 
