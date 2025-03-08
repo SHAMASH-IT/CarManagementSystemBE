@@ -32,13 +32,5 @@ export class ParkingController {
     return this.parkingService.deleteParking(Number(id));
   }
 
-  // Endpoint pour obtenir les locations disponibles
-  @Get("available")
-  getAvailableLocations(
-    @Query("serviceId") serviceId: string,
-    @Query("date") date: string,
-    @Query("time") time: string
-  ) {
-    return this.parkingService.getAvailableLocations(Number(serviceId), new Date(date), new Date(time));
-  }
+  
 }

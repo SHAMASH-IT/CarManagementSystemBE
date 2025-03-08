@@ -12,118 +12,129 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 enum Status {
   PENDING
   COMPLETED
   CANCELLED
+  RESERVED
 }
- 
+
 enum Role {
   ADMIN
   USER
+  PROVIDER
 }
- 
+
 model Service {
-  id          Int     @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   name        String
   description String
-  price       Decimal
   parking     Parking[]
   appointments Appointment[]
 }
- 
+
 model User {
-  id    Int    @id @default(autoincrement())
-  name  String
-  email String @unique
-  hash  String
-  phone String
-  role  Role   @default(USER)
-  vehicles Vehicle[]
-  orders   Order[]
+  id        Int          @id @default(autoincrement())
+  name      String
+  email     String       @unique
+  hash      String
+  phone     String
+  role      Role         @default(USER)
+  vehicles  Vehicle[]
+  orders    Order[]
+  
 }
- 
+
 model Vehicle {
-  id           Int     @id @default(autoincrement())
+  id           Int          @id @default(autoincrement())
   brand        String
   model        String
   year         Int
   registration String
   userId       Int
-  user         User    @relation(fields: [userId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
   positions    Position[]
-
-  Appointment Appointment[]
+  appointments Appointment[]
 }
- 
+
 model Parking {
-  id          Int     @id @default(autoincrement())
+  id          Int          @id @default(autoincrement())
   name        String
   status      Status
   serviceId   Int
-  service     Service  @relation(fields: [serviceId], references: [id])
+  service     Service      @relation(fields: [serviceId], references: [id])
   locations   Location[]
 }
- 
+
 model Location {
-  id         Int        @id @default(autoincrement())
+  id         Int          @id @default(autoincrement())
   name       String
   status     Status
   parkingId  Int
-  parking    Parking    @relation(fields: [parkingId], references: [id])
+  parking    Parking      @relation(fields: [parkingId], references: [id])
   positions  Position[]
 }
- 
+
 model Position {
-  id         Int       @id @default(autoincrement())
+  id         Int          @id @default(autoincrement())
   locationId Int
-  location   Location  @relation(fields: [locationId], references: [id])
+  location   Location     @relation(fields: [locationId], references: [id])
   vehicleId  Int
-  vehicle    Vehicle   @relation(fields: [vehicleId], references: [id])
+  vehicle    Vehicle      @relation(fields: [vehicleId], references: [id])
 }
- 
+
 model Appointment {
-  id          Int       @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   date        DateTime
   time        DateTime
-  status      Status
+  status      Status         @default(PENDING)
   serviceId   Int
-  service     Service   @relation(fields: [serviceId], references: [id])
+  service     Service        @relation(fields: [serviceId], references: [id])
   vehicleId   Int
-  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
-
-  Intervention Intervention[]
+  vehicle     Vehicle        @relation(fields: [vehicleId], references: [id])
+  interventions Intervention[]
 }
- 
+
+/*
+model Parametrage {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  time        DateTime
+}
+*/
+
 model Category {
   id     Int     @id @default(autoincrement())
   name   String
   pieces Piece[]
 }
- 
+
 model Piece {
-  id          Int       @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   name        String
   stock       Int
   threshold   Int
   price       Float
   categoryId  Int
-  category    Category   @relation(fields: [categoryId], references: [id])
+  category    Category       @relation(fields: [categoryId], references: [id])
   orders      Order[]
   interventions Intervention[]
 }
- 
+
 model Intervention {
-  id              Int          @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   startDate       DateTime
   endDate         DateTime
+  price       Float         // Changed from Decimal to Float for simplicity
   status          Status
   appointmentId   Int
-  appointment     Appointment  @relation(fields: [appointmentId], references: [id])
+  appointment     Appointment    @relation(fields: [appointmentId], references: [id])
   pieceId         Int
-  piece           Piece        @relation(fields: [pieceId], references: [id])
+  piece           Piece          @relation(fields: [pieceId], references: [id])
 }
- 
+
 model Order {
   id          Int     @id @default(autoincrement())
   date        DateTime

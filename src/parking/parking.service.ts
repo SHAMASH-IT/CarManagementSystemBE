@@ -49,46 +49,7 @@ export class ParkingService {
     });
   }
 
-  // ✅ 6. Trouver les locations disponibles pour un rendez-vous donné
-  async getAvailableLocations(serviceId: number, appointmentDate: Date, appointmentTime: Date) {
-    const parkings = await this.prisma.parking.findMany({
-      where: { serviceId },
-      include: {
-        locations: {
-          include: {
-            positions: {
-              include: {
-                vehicle: {
-                  include: { appointments: true }, // Récupérer les rendez-vous des véhicules garés
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Filtrer les locations disponibles
-    const availableLocations = parkings
-      .flatMap((parking) => parking.locations) // Extraire toutes les locations des parkings
-      .filter((location) => {
-        // Vérifier que la location est en statut PENDING
-        if (location.status !== Status.PENDING) return false;
-
-        // Vérifier si elle est occupée à la date et heure du rendez-vous
-        const isOccupied = location.positions.some((position) => {
-          const vehicleAppointments = position.vehicle?.appointments || [];
-          return vehicleAppointments.some((appointment) => {
-            return (
-              appointment.date.toISOString().split("T")[0] === appointmentDate.toISOString().split("T")[0] &&
-              appointment.time.toISOString().split("T")[1] === appointmentTime.toISOString().split("T")[1]
-            );
-          });
-        });
-
-        return !isOccupied; // Retourner seulement les locations libres
-      });
-
-    return availableLocations;
-  }
+  
+  
+  
 }
