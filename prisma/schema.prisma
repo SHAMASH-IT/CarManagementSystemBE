@@ -14,10 +14,10 @@ datasource db {
 }
 
 enum Status {
-  RESERVED
   PENDING
   COMPLETED
   CANCELLED
+  RESERVED
 }
 
 enum Role {
@@ -88,7 +88,7 @@ model Appointment {
   id          Int            @id @default(autoincrement())
   date        DateTime
   time        DateTime
-  status      Status         @default(RESERVED)
+  status      Status         @default(PENDING)
   serviceId   Int
   service     Service        @relation(fields: [serviceId], references: [id])
   vehicleId   Int
