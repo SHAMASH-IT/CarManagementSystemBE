@@ -1,42 +1,34 @@
-import { Param,Controller,Get,Post,Patch,Delete, Body,NotFoundException, } from '@nestjs/common';
-import { Createappointment } from './dto';
-import { Vehicle, Service } from '@prisma/client'; // Import Vehicle and Service models
+import { Controller, Get, Post, Param, Body } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
-
+import { Createappointment } from './dto';
 
 @Controller('appointments')
 export class AppointmentsController {
-    constructor(private readonly appointmentsService: AppointmentsService) {}
-    
-    
-    @Post('create-appointment')
+    constructor(private readonly service: AppointmentsService) {}
+
+    //  Create appointment
+    @Post('create')
     async createAppointment(@Body() dto: Createappointment) {
-        try {
-            // Appeler la méthode du service pour créer le rendez-vous
-            return await this.appointmentsService.createAppointment(dto);
-        } catch (error) {
-            throw error; // Renvoyer l'erreur telle quelle
-        }
+        return this.service.createAppointment(dto);
     }
 
-    @Get('available-slots/:date')
-    async getAvailableSlots(@Param('date') date: string) {
-        return this.appointmentsService.getAvailableSlots(date);
+    //   all appointments
+    @Get('all-appointments')
+    async getAllAppointments() {
+        return this.service.getAllAppointments();
     }
-    @Get('get-appointment')
-    getAppointment(){
 
+    //  all appointments for a specific vehicle
+    @Get('vehicle-appointments/:vehicleId')
+    async getAppointmentsOfOneCar(@Param('vehicleId') vehicleId: string) {
+        return this.service.getAppointmentsOfOneCar(parseInt(vehicleId));
     }
-    @Get('all-appointment')
-    getAllAppointment(){}
+
+    //   all appointments for a specific date
+    @Get('date-appointments/:date')
+    async getAppointmentsByDate(@Param('date') date: string) {
+        return this.service.getAppointmentsByDate(date);
+    }
 
     
-    @Patch('edit-appointment')
-    editAppointment(){
-
-    }
-    @Delete('delete-appointment')
-    deleteAppointment(){
-
-    }
 }

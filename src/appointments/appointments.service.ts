@@ -1,13 +1,14 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Createappointment } from './dto';
+import { ParkingService } from 'src/parking/parking.service';
 
 @Injectable()
 export class AppointmentsService {
-    constructor(private prisma: PrismaService) {}
-
+    constructor(private prisma: PrismaService,
+                private parkingService: ParkingService) {}
+        // create appointment
     async createAppointment(dto: Createappointment) {
-        // Récupérer le véhicule et le service à partir de leurs IDs
         const vehicle = await this.prisma.vehicle.findUnique({
             where: { id: dto.vehicleId },
         });
@@ -16,18 +17,15 @@ export class AppointmentsService {
             where: { id: dto.serviceId },
         });
 
-        // Vérifier si le véhicule et le service existent
         if (!vehicle) {
-            throw new NotFoundException('Véhicule non trouvé !');
+            throw new NotFoundException('Vehicle not found!');
         }
         if (!service) {
-            throw new NotFoundException('Service non trouvé !');
+            throw new NotFoundException('Service not found!');
         }
 
-        // Convertir la date et l'heure en objet Date
         const appointmentDateTime = new Date(`${dto.date}T${dto.time}:00`);
 
-        // Vérifier si un rendez-vous existe déjà pour ce véhicule à cette heure
         const existingAppointment = await this.prisma.appointment.findFirst({
             where: {
                 vehicleId: vehicle.id,
@@ -36,19 +34,122 @@ export class AppointmentsService {
         });
 
         if (existingAppointment) {
-            throw new ConflictException('Un rendez-vous est déjà programmé pour ce véhicule à cette heure !');
+            throw new ConflictException('An appointment is already scheduled for this vehicle at this time!');
         }
 
-        // Créer le rendez-vous
-        return await this.prisma.appointment.create({
-            data: {
-                date: appointmentDateTime,
-                time: appointmentDateTime,
-                vehicleId: vehicle.id,
-                serviceId: service.id,
+        const availableLocations = await this.parkingService.getEmptyLocationsByServiceId(service.id);
+
+        if (availableLocations.length === 0) {
+            throw new ConflictException('No available locations for the selected service at this time!');
+        }
+
+        const selectedLocation = availableLocations[0];
+
+        const [appointment] = await this.prisma.$transaction([
+            this.prisma.appointment.create({
+                data: {
+                    date:dto.date,
+                    time:dto.time,
+                    vehicleId: vehicle.id,
+                    serviceId: service.id,
+                },
+            }),
+            this.prisma.location.update({
+                where: { id: selectedLocation.id },
+                    data: { status: 'OCCUPIED' },
+                }),
+                this.prisma.position.create({
+                    data: {
+                        vehicleId: vehicle.id,
+                        locationId: selectedLocation.id,
+                    },
+                }),
+        ]);
+
+        return appointment;
+    }
+    // all appointments
+    async getAllAppointments() {
+        return this.prisma.appointment.findMany({
+            include: {
+                vehicle: {
+                    select: {
+                        brand: true,
+                        model: true,
+                        year: true,
+                        registration: true,
+                        positions: {
+                            select: {
+                                location: {
+                                    select: {
+                                        name: true, 
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                service: true,
             },
         });
     }
+
+    //  all appointments for a specific vehicle
+    async getAppointmentsOfOneCar(vehicleId: number) {
+        return this.prisma.appointment.findMany({
+            where: { vehicleId },
+            include: {
+                vehicle: {
+                    select: {
+                        brand: true,
+                        model: true,
+                        year: true,
+                        registration: true,
+                        positions: {
+                            select: {
+                                location: {
+                                    select: {
+                                        name: true, 
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                service: true,
+            },
+        });
+    }
+
+    // all appointments for a specific date 
+    async getAppointmentsByDate(date: string) {
+        return this.prisma.appointment.findMany({
+            where: {
+                date: new Date(date),
+            },
+            include: {
+                vehicle: {
+                    select: {
+                        brand: true,
+                        model: true,
+                        year: true,
+                        registration: true,
+                        positions: {
+                            select: {
+                                location: {
+                                    select: {
+                                        name: true, 
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                service: true,
+            },
+        });
+    }
+
 
     async getAvailableSlots(date: string) {
         const allSlots = [
