@@ -151,22 +151,5 @@ export class AppointmentsService {
     }
 
 
-    async getAvailableSlots(date: string) {
-        const allSlots = [
-            "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
-        ];
-
-        const takenSlots = await this.prisma.appointment.findMany({
-            where: { date: new Date(date) },
-            select: { time: true },
-        });
-
-        const occupiedTimes = takenSlots.map(app =>
-            new Date(app.time).toISOString().substring(11, 16)
-        );
-
-        const availableSlots = allSlots.filter(slot => !occupiedTimes.includes(slot));
-
-        return { date, availableSlots };
-    }
+    
 }
