@@ -9,9 +9,19 @@ export class Createappointment {
 
     @IsInt()
     @IsOptional()
-    vehicleId: number; // ID du véhicule
+    vehicleId: number; 
 
     @IsInt()
     @IsOptional()
-    serviceId: number; // ID du service
+    serviceId: number; 
+}
+
+export class updateAppointment{
+    @IsDateString()
+    @IsOptional()
+    date?: string; 
+
+    @IsDateString()
+    @IsOptional()
+    time?: string;
 }

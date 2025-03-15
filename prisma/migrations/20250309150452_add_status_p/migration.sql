@@ -1,0 +1,2 @@
+-- CreateEnum
+CREATE TYPE "StatusP" AS ENUM ('RESERVED', 'OCCUPIED', 'EMPTY');
