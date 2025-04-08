@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  RESERVED
+  PENDING
+  COMPLETED
+  CANCELLED
+  CONFIRMED
+  IN_PROGRESS
+}
+enum StatusP {
+  RESERVED
+  OCCUPIED
+  EMPTY
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+  PROVIDER
+}
+
+model Service {
+  id          Int           @id @default(autoincrement())
+  name        String
+  description String
+  parking     Parking[]
+  appointments Appointment[]
+}
+
+model User {
+  id        Int          @id @default(autoincrement())
+  name      String
+  email     String       @unique
+  hash      String
+  phone     String
+  role      Role         @default(CLIENT)
+  vehicles  Vehicle[]
+  orders    Order[]
+  
+}
+
+model Vehicle {
+  id           Int          @id @default(autoincrement())
+  brand        String
+  model        String
+  year         Int
+  registration String
+  userId       Int
+  user         User         @relation(fields: [userId], references: [id],onDelete: Cascade)
+  positions    Position[]
+  appointments Appointment[]
+}
+
+model Parking {
+  id          Int          @id @default(autoincrement())
+  name        String
+  places      Int
+  serviceId   Int
+  service     Service      @relation(fields: [serviceId], references: [id],onDelete: Cascade)
+  locations   Location[]
+}
+
+model Location {
+  id         Int          @id @default(autoincrement())
+  name       String
+  status     StatusP      @default(EMPTY)
+  parkingId  Int
+  parking    Parking      @relation(fields: [parkingId], references: [id],onDelete: Cascade)
+  positions  Position[]
+}
+
+model Position {
+  id         Int          @id @default(autoincrement())
+  locationId Int
+  location   Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  vehicleId  Int
+  vehicle    Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  appointmentId Int
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+model Appointment {
+  id          Int            @id @default(autoincrement())
+  date        DateTime
+  time        DateTime
+  status      Status         @default(RESERVED)
+  serviceId   Int
+  service     Service        @relation(fields: [serviceId], references: [id],onDelete: Cascade)
+  vehicleId   Int
+  vehicle     Vehicle        @relation(fields: [vehicleId], references: [id],onDelete: Cascade)
+  interventions Intervention[]
+  positions    Position[]
+}
+
+/*
+model Parametrage {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id],onDelete: Cascade)
+  time        DateTime
+}
+*/
+
+model Category {
+  id     Int     @id @default(autoincrement())
+  name   String
+  pieces Piece[]
+}
+
+model Piece {
+  id          Int            @id @default(autoincrement())
+  name        String
+  stock       Int
+  threshold   Int
+  price       Float
+  categoryId  Int
+  category    Category       @relation(fields: [categoryId], references: [id],onDelete: Cascade)
+  orders      Order[]
+  interventions Intervention[]
+}
+
+model Intervention {
+  id              Int            @id @default(autoincrement())
+  description String
+  startDate       DateTime
+  endDate         DateTime
+  price       Float         // Changed from Decimal to Float for simplicity
+  status          Status
+  appointmentId   Int
+  appointment     Appointment    @relation(fields: [appointmentId], references: [id],onDelete: Cascade)
+  pieceId         Int?
+  piece           Piece?          @relation(fields: [pieceId], references: [id],onDelete: Cascade)
+}
+
+model Order {
+  id          Int     @id @default(autoincrement())
+  date        DateTime
+  status      Status
+  quantity    Int 
+  pieceId     Int
+  piece       Piece   @relation(fields: [pieceId], references: [id],onDelete: Cascade)
+  userId      Int
+  user        User    @relation(fields: [userId], references: [id],onDelete: Cascade)
+}
