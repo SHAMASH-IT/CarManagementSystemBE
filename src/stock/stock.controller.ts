@@ -19,7 +19,11 @@ import {
   @Controller('stock')
   export class StockController {
     constructor(private readonly stockService: StockService) {}
-  
+    // 📦 Categories
+    @Get('categories')
+    getAllCategories() {
+      return this.stockService.getAllCategories();
+    }
     // 📦 Categories
     @Post('categories')
     createCategory(@Body() dto: CreateCategoryDto) {

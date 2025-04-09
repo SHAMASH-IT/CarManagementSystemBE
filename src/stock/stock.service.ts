@@ -9,7 +9,9 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 @Injectable()
 export class StockService {
     constructor(private prisma: PrismaService) {}
-
+    async getAllCategories() {
+      return this.prisma.category.findMany();
+  }
     async createCategory(dto: CreateCategoryDto) {
       return this.prisma.category.create({
         data: dto,
