@@ -108,7 +108,10 @@ export class ProgressService {
         status: Status.COMPLETED,
       },
     });
-  
+  await this.prisma.appointment.update({
+    where: { id: intervention.appointmentId }, // Use the appointmentId from the intervention
+    data: { status: Status.COMPLETED },
+  });
     // 2. Create invoice
     await this.prisma.invoice.create({
       data: {
