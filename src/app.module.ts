@@ -10,6 +10,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StockModule } from './stock/stock.module';
 import { ReportsModule } from './reports/reports.module';
 import { ConfigModule } from '@nestjs/config';
+import { ProgressModule } from './progress/progress.module';
 
 
 
@@ -18,7 +19,7 @@ import { ConfigModule } from '@nestjs/config';
 
 
 @Module({
-  imports: [AppointmentsModule, UsersModule, ParkingModule,
+  imports: [AppointmentsModule, UsersModule, ParkingModule,ProgressModule,
      AuthModule, HistoryModule, PrismaModule, StockModule, 
      ReportsModule, ConfigModule.forRoot({ isGlobal: true }), ],
   controllers: [AppController],

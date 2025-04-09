@@ -156,3 +156,12 @@ model Order {
   userId      Int
   user        User    @relation(fields: [userId], references: [id],onDelete: Cascade)
 }
+/*
+model Invoice {
+  id              Int           @id @default(autoincrement())
+  date            DateTime      @default(now())
+  description     String
+  total           Float
+  interventionId  Int           @unique
+  intervention    Intervention  @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+}*/

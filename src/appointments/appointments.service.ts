@@ -42,7 +42,9 @@ export class AppointmentsService {
         );
     }
 
-        const appointmentDateTime = new Date(`${dto.date}T${dto.time}:00`);
+    const appointmentDateTime = new Date(`${dto.date}T${dto.time}:00`);
+    appointmentDateTime.setHours(appointmentDateTime.getHours() + 1);
+    
 
         const existingAppointment = await this.prisma.appointment.findFirst({
             where: {
