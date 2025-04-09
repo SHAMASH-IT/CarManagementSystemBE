@@ -26,6 +26,21 @@ export class AppointmentsService {
         if (!service) {
             throw new NotFoundException('Service not found!');
         }
+         // 🚫 Vérifier si ce véhicule a déjà un RDV actif
+    const activeAppointment = await this.prisma.appointment.findFirst({
+        where: {
+            vehicleId: vehicle.id,
+            status: {
+                in: ['RESERVED', 'IN_PROGRESS'],
+            },
+        },
+    });
+
+    if (activeAppointment) {
+        throw new ConflictException(
+            'This vehicle already has an active appointment. Please cancel or complete it before scheduling a new one.',
+        );
+    }
 
         const appointmentDateTime = new Date(`${dto.date}T${dto.time}:00`);
 
