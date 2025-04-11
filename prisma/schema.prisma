@@ -127,24 +127,50 @@ model Piece {
   stock       Int
   threshold   Int
   price       Float
+  initialPrice Float
   categoryId  Int
-  category    Category       @relation(fields: [categoryId], references: [id],onDelete: Cascade)
+  category    Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orders      Order[]
-  interventions Intervention[]
+  interventions Intervention[] @relation("PieceInterventions") // Association avec Intervention
+  
+  // Nouvelle association avec Intervention à travers une table d'association (optionnelle)
+  interventionPieces InterventionPiece[]  
+
+  Intervention Intervention[]
 }
 
 model Intervention {
   id              Int            @id @default(autoincrement())
-  description String
+  description     String
   startDate       DateTime
   endDate         DateTime
-  price       Float         // Changed from Decimal to Float for simplicity
+  price           Float         // Prix total de l'intervention
   status          Status
-  appointmentId   Int
-  appointment     Appointment    @relation(fields: [appointmentId], references: [id],onDelete: Cascade)
+  appointmentId   Int?
+  appointment     Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   pieceId         Int?
-  piece           Piece?          @relation(fields: [pieceId], references: [id],onDelete: Cascade)
+  piece           Piece?          @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  Invoice         Invoice[]
+
+  // Nouvelle association avec Piece à travers la table d'association (optionnelle)
+  interventionPieces InterventionPiece[]
+
+  Piece Piece[] @relation("PieceInterventions")
 }
+
+// Table d'association pour relier Piece et Intervention (optionnelle)
+model InterventionPiece {
+  id              Int         @id @default(autoincrement())
+  pieceId         Int?
+  interventionId  Int?
+  quantity        Int?         // Quantité de pièces utilisées dans l'intervention
+  totalPrice      Float?       // Prix total pour cette quantité de pièces
+
+  piece           Piece?       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  intervention    Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+}
+
 
 model Order {
   id          Int     @id @default(autoincrement())
@@ -156,12 +182,13 @@ model Order {
   userId      Int
   user        User    @relation(fields: [userId], references: [id],onDelete: Cascade)
 }
-/*
+
 model Invoice {
-  id              Int           @id @default(autoincrement())
-  date            DateTime      @default(now())
-  description     String
-  total           Float
-  interventionId  Int           @unique
-  intervention    Intervention  @relation(fields: [interventionId], references: [id], onDelete: Cascade)
-}*/
+  id              Int         @id @default(autoincrement())
+  total           Float       // Montant total de la facture
+  description     String      // Description de la facture
+  createdAt       DateTime    @default(now())  // Date de création
+  intervention    Intervention @relation(fields: [interventionId], references: [id])
+  interventionId  Int         // Référence à l'intervention
+}
+

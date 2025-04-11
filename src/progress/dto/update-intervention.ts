@@ -1,5 +1,5 @@
 // dto/update-intervention.dto.ts
-import { IsOptional, IsString, IsNumber, IsDateString, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsDateString, IsEnum , IsArray } from 'class-validator';
 import { Status } from '@prisma/client';
 
 export class UpdateInterventionDto {
@@ -18,4 +18,7 @@ export class UpdateInterventionDto {
   @IsOptional()
   @IsEnum(Status)
   status?: Status;
+  @IsOptional()
+    @IsArray()
+    pieces?: { id: number; quantity: number; price: number }[]; 
 }

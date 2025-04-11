@@ -1,40 +1,66 @@
-import { Controller, Get, Param, Post, Body, Patch } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, Patch, BadRequestException } from '@nestjs/common';
 import { ProgressService } from './progress.service';
 import { StartInterventionDto } from './dto/start-intervention';
 import { UpdateInterventionDto } from './dto/update-intervention';
 
 @Controller('progress')
 export class ProgressController {
-  constructor(private progressService: ProgressService) {}
+  constructor(private readonly progressService: ProgressService) {}
 
+  // 1. Récupérer les rendez-vous de statut RESERVED
   @Get('appointments/reserved')
-  getReservedAppointments() {
+  async getReservedAppointments() {
     return this.progressService.getReservedAppointments();
   }
 
-  @Post('interventions/:id/start')
-  startIntervention(
-    @Param('id') id: number,
+  // 2. Commencer une intervention à partir d’un rendez-vous
+  @Post('intervention/start/:appointmentId')
+  async startIntervention(
+    @Param('appointmentId') appointmentId: string,
     @Body() dto: StartInterventionDto,
   ) {
-    return this.progressService.startIntervention(Number(id), dto);
+    return this.progressService.startIntervention(appointmentId, dto);
   }
 
-  @Patch('interventions/:id')
-  updateIntervention(
-    @Param('id') id: number,
-    @Body() dto: UpdateInterventionDto,
-  ) {
-    return this.progressService.updateIntervention(Number(id), dto);
+  // 3. Récupérer une intervention par son ID
+  @Get(':id')
+async getIntervention(@Param('id') id: string) {
+  const interventionId = parseInt(id, 10);
+
+  if (isNaN(interventionId)) {
+    throw new BadRequestException('L\'ID doit être un nombre valide');
   }
 
-  @Get('interventions/:id')
-  getIntervention(@Param('id') id: number) {
-    return this.progressService.getIntervention(Number(id));
+  return this.progressService.getIntervention(interventionId);
+}
+
+
+  // 4. Mettre à jour une intervention
+  @Patch('update/:id')
+async updateIntervention(
+  @Param('id') id: string,  // id est récupéré comme chaîne
+  @Body() dto: UpdateInterventionDto,
+) {
+  const interventionId = Number(id);  // Convertir id en nombre entier
+  if (isNaN(interventionId)) {
+    throw new BadRequestException('ID must be a valid integer');
   }
-/*
-  @Post('interventions/:id/complete')
-  completeIntervention(@Param('id') id: number) {
-    return this.progressService.completeIntervention(Number(id));
-  }*/
+  return this.progressService.updateIntervention(interventionId, dto);
+}
+
+
+
+  // 5. Compléter une intervention
+  @Patch('intervention/complete/:id')
+  async completeIntervention(@Param('id') id: string) {
+    const interventionId = Number(id);
+    if (isNaN(interventionId)) {
+      throw new BadRequestException('ID must be a valid integer');
+    }
+    return this.progressService.completeIntervention(interventionId);
+  }
+
+
+
+  
 }

@@ -50,6 +50,7 @@ export class StockService {
         `;
       }
       async placeOrder(dto: CreateOrderDto) {
+        // Vérifie si la pièce existe
         const piece = await this.prisma.piece.findUnique({
           where: { id: dto.pieceId },
         });
@@ -58,27 +59,36 @@ export class StockService {
           throw new BadRequestException("Pièce introuvable.");
         }
       
+        // Vérifie si la quantité demandée est disponible en stock
         if (dto.quantity > piece.stock) {
           throw new BadRequestException("Quantité demandée supérieure au stock disponible.");
         }
       
-        // ✅ Création de la commande + mise à jour du stock dans une transaction
+        // Création de la commande et mise à jour du stock dans une transaction
         const [order] = await this.prisma.$transaction([
           this.prisma.order.create({
             data: {
-              ...dto,
               date: new Date(),
-              status: Status.RESERVED,
+              status: Status.RESERVED, // Statut de la commande
+              quantity: dto.quantity,
+              userId: dto.userId, // L'utilisateur qui passe la commande
+              pieceId: dto.pieceId, // Utilise pieceId directement pour la relation
             },
           }),
           this.prisma.piece.update({
             where: { id: dto.pieceId },
-            data: { stock: piece.stock - dto.quantity },
+            data: { stock: piece.stock - dto.quantity }, // Mise à jour du stock
           }),
         ]);
       
-        return order;
+        return order; // Retourne la commande créée
       }
+      
+      
+      
+      
+      
+      
       async updateOrder(id: number, dto: UpdateOrderDto) {
         const order = await this.prisma.order.findUnique({
           where: { id },
@@ -161,4 +171,6 @@ export class StockService {
       
         return updatedOrder;
       }
+      
+      
     }

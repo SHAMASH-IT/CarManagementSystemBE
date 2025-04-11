@@ -1,13 +1,16 @@
-// dto/start-intervention.dto.ts
-import { IsString, IsNumber, IsDateString } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class StartInterventionDto {
   @IsString()
   description: string;
 
-  @IsNumber()
+  @IsString()
+  endDate: string; // Format: 'YYYY-MM-DDTHH:mm:ss'
+
+  @IsInt()
   price: number;
 
-  @IsDateString()
-  endDate: string;
+  @IsOptional()
+  @IsArray()
+  pieces?: { id: number; quantity: number; price: number }[];  // Tableau des pièces associées à l'intervention
 }
