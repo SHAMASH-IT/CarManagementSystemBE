@@ -1,4 +1,4 @@
-import { Controller,Post,Body,Patch,Param,Get } from '@nestjs/common';
+import { Controller,Post,Body,Patch,Param,Get, Put, Delete, ParseIntPipe } from '@nestjs/common';
 import { CreateParking , UpdateParking} from './dto';
 import { ParkingService } from './parking.service';
 
@@ -13,7 +13,7 @@ export class ParkingController {
                 throw error; 
             }
         }
-    @Patch('edit-parking/:id')
+    @Put('edit-parking/:id')
         async updateParking(@Param('id') id: string, @Body() dto: UpdateParking) {
             try {
                 return await this.parkingservice.updateParking(parseInt(id), dto);
@@ -69,7 +69,11 @@ export class ParkingController {
         }
     }
     
-
+    @Delete(':id')
+    async deleteParking(@Param('id', ParseIntPipe) id: number) {
+      return this.parkingservice.deleteParking(id);
+    }
+    
 
 
 }

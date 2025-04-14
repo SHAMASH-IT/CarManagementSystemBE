@@ -175,5 +175,27 @@ export class ParkingService {
     
         return locations;
     }
+    async deleteParking(id: number) {
+        // Vérifier si le parking existe
+        const parking = await this.prisma.parking.findUnique({
+          where: { id },
+        });
+      
+        if (!parking) {
+          throw new NotFoundException('Parking non trouvé !');
+        }
+      
+        // Supprimer toutes les locations associées à ce parking
+        await this.prisma.location.deleteMany({
+          where: { parkingId: id },
+        });
+      
+        // Supprimer le parking
+        await this.prisma.parking.delete({
+          where: { id },
+        });
+      
+        return { message: 'Parking et ses locations supprimés avec succès.' };
+      }
     
 }

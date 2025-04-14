@@ -29,7 +29,18 @@ import {
     createCategory(@Body() dto: CreateCategoryDto) {
       return this.stockService.createCategory(dto);
     }
+    @Put('categories/:id')
+    async updateCategory(
+      @Param('id', ParseIntPipe) id: number,
+      @Body() dto: CreateCategoryDto,
+    ) {
+      return this.stockService.updateCategory(id, dto);
+    }
   
+    @Delete('categories/:id')
+    async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+      return this.stockService.deleteCategory(id);
+    }
     // 🧩 Pieces
     @Post('pieces')
     createPiece(@Body() dto: CreatePieceDto) {

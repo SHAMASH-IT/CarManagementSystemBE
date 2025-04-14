@@ -17,6 +17,41 @@ export class StockService {
         data: dto,
       });
     }
+    async updateCategory(id: number, dto: CreateCategoryDto) {
+      const category = await this.prisma.category.findUnique({
+        where: { id },
+      });
+    
+      if (!category) {
+        throw new BadRequestException("Catégorie introuvable.");
+      }
+    
+      return this.prisma.category.update({
+        where: { id },
+        data: dto,
+      });
+    }
+    async deleteCategory(id: number) {
+      const category = await this.prisma.category.findUnique({
+        where: { id },
+        include: { pieces: true }, // Pour vérifier les pièces liées
+      });
+    
+      if (!category) {
+        throw new BadRequestException("Catégorie introuvable.");
+      }
+    
+      // Supprimer toutes les pièces liées à cette catégorie
+      await this.prisma.piece.deleteMany({
+        where: { categoryId: id },
+      });
+    
+      // Supprimer la catégorie ensuite
+      return this.prisma.category.delete({
+        where: { id },
+      });
+    }
+    
     async createPiece(dto: CreatePieceDto) {
         return this.prisma.piece.create({ data: dto });
       }
@@ -83,12 +118,6 @@ export class StockService {
       
         return order; // Retourne la commande créée
       }
-      
-      
-      
-      
-      
-      
       async updateOrder(id: number, dto: UpdateOrderDto) {
         const order = await this.prisma.order.findUnique({
           where: { id },
