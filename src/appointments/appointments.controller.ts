@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch,Delete,Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch,Delete,Param, Body, BadRequestException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { Createappointment, updateAppointment } from './dto';
 
@@ -43,6 +43,26 @@ export class AppointmentsController {
     ) {
         return this.service.updateAppointmentDateTime(parseInt(appointmentId), dto);
     }
+    @Get('service/:serviceId')
+    async getAppointmentsByService(@Param('serviceId') serviceId: string) {
+      const id = parseInt(serviceId, 10);
+      if (isNaN(id)) {
+        throw new BadRequestException("L'ID de service doit être un nombre valide");
+      }
+      return this.service.getAppointmentsByServiceId(id);
+    }
+    @Patch(':id/status')
+async updateAppointmentStatusToReserved(@Param('id') id: string) {
+  return this.service.confirmAppointment(Number(id));
+}
+@Get('pending')
+async getPendingAppointments() {
+  return this.service.getPendingAppointments();
+}
+@Get('reserved')
+async getReservedAppointments() {
+  return this.service.getReservedAppointments();
+}
 
     
 }

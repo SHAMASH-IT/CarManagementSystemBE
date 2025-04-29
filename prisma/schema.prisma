@@ -97,7 +97,7 @@ model Appointment {
   id          Int            @id @default(autoincrement())
   date        DateTime
   time        DateTime
-  status      Status         @default(RESERVED)
+  status      Status         @default(PENDING)
   serviceId   Int
   service     Service        @relation(fields: [serviceId], references: [id],onDelete: Cascade)
   vehicleId   Int
@@ -127,7 +127,7 @@ model Piece {
   stock       Int
   threshold   Int
   price       Float
-  initialPrice Float
+  initialPrice Float?
   categoryId  Int
   category    Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orders      Order[]
@@ -140,24 +140,25 @@ model Piece {
 }
 
 model Intervention {
-  id              Int            @id @default(autoincrement())
-  description     String
-  startDate       DateTime
-  endDate         DateTime
-  price           Float         // Prix total de l'intervention
-  status          Status
-  appointmentId   Int?
-  appointment     Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  pieceId         Int?
-  piece           Piece?          @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  id                  Int                   @id @default(autoincrement())
+  description         String
+  startDate           DateTime
+  endDate             DateTime
+  price               Float                // Prix total de l'intervention
+  status              Status
+  appointmentId       Int?
+  appointment         Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  pieceId             Int?
+  piece               Piece?               @relation(fields: [pieceId], references: [id], onDelete: Cascade)
 
-  Invoice         Invoice[]
+  rate                Int?                 // Note donnée par le client (optionnelle)
+  commentaire         String?              // Commentaire laissé par le client (optionnel)
 
-  // Nouvelle association avec Piece à travers la table d'association (optionnelle)
-  interventionPieces InterventionPiece[]
-
-  Piece Piece[] @relation("PieceInterventions")
+  Invoice             Invoice[]
+  interventionPieces  InterventionPiece[]
+  Piece               Piece[]              @relation("PieceInterventions")
 }
+
 
 // Table d'association pour relier Piece et Intervention (optionnelle)
 model InterventionPiece {

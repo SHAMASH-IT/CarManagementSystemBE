@@ -84,6 +84,15 @@ export class StockService {
           WHERE "stock" <= "threshold"
         `;
       }
+
+      async getAllOrders() {
+        return this.prisma.order.findMany({
+          orderBy: {
+            date: 'desc'
+          }
+        });
+      }
+
       async placeOrder(dto: CreateOrderDto) {
         // Vérifie si la pièce existe
         const piece = await this.prisma.piece.findUnique({
@@ -167,39 +176,52 @@ export class StockService {
         const order = await this.prisma.order.findUnique({
           where: { id },
         });
-      
+    
         if (!order) {
           throw new BadRequestException("Commande introuvable.");
         }
-      
-        if (order.status === Status.CANCELLED || order.status === Status.COMPLETED) {
-          throw new BadRequestException("Impossible d'annuler cette commande.");
+    
+        if (order.status === 'CANCELLED' || order.status === 'COMPLETED') {
+          throw new BadRequestException("Cette commande ne peut plus être annulée.");
         }
-      
-        const piece = await this.prisma.piece.findUnique({
-          where: { id: order.pieceId },
+    
+        return this.prisma.order.update({
+          where: { id },
+          data: { status: 'CANCELLED' },
+        });
+      }
+
+      async completeOrder(id: number) {
+        const order = await this.prisma.order.findUnique({
+          where: { id },
+        });
+    
+        if (!order) {
+          throw new BadRequestException("Commande introuvable.");
+        }
+    
+        if (order.status === 'CANCELLED' || order.status === 'COMPLETED') {
+          throw new BadRequestException("Cette commande est déjà terminée ou annulée.");
+        }
+    
+        return this.prisma.order.update({
+          where: { id },
+          data: { status: 'COMPLETED' },
+        });
+      }
+      async getAllPiecesByCategory(categoryId: number) {
+        const category = await this.prisma.category.findUnique({
+          where: { id: categoryId },
         });
       
-        if (!piece) {
-          throw new BadRequestException("Pièce introuvable.");
+        if (!category) {
+          throw new BadRequestException("Catégorie introuvable.");
         }
       
-        // ✅ Mettre à jour la commande + remettre les pièces dans le stock
-        const [updatedOrder] = await this.prisma.$transaction([
-          this.prisma.order.update({
-            where: { id },
-            data: { status: Status.CANCELLED },
-          }),
-          this.prisma.piece.update({
-            where: { id: order.pieceId },
-            data: {
-              stock: piece.stock + order.quantity,
-            },
-          }),
-        ]);
-      
-        return updatedOrder;
+        return this.prisma.piece.findMany({
+          where: { categoryId },
+          include: { category: true },
+        });
       }
       
-      
-    }
+}

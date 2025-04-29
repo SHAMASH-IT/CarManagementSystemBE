@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
+import { startOfDay, endOfDay } from 'date-fns';
 import { Status } from '@prisma/client';
 import { StartInterventionDto } from './dto/start-intervention';
 import { UpdateInterventionDto } from './dto/update-intervention';
@@ -359,6 +359,216 @@ export class ProgressService {
       order: updatedOrder,
     };
   }
+  async getInProgressInterventions() {
+    const interventions = await this.prisma.intervention.findMany({
+      where: { status: Status.IN_PROGRESS },
+      include: {
+        appointment: {
+          include: {
+            vehicle: true,
+            service: true,
+          },
+        },
+        interventionPieces: {
+          include: {
+            piece: true,
+          },
+        },
+      },
+    });
   
+    if (interventions.length === 0) {
+      throw new NotFoundException("Aucune intervention en cours.");
+    }
+  
+    return interventions;
+  }
+  async getReservedAppointmentsByServiceId(serviceId: number) {
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        status: Status.RESERVED,
+        serviceId: serviceId,
+      },
+      include: {
+        vehicle: true,
+        service: true,
+      },
+    });
+  
+    if (appointments.length === 0) {
+      throw new NotFoundException(`Aucun rendez-vous réservé pour le service ${serviceId}`);
+    }
+  
+    return appointments;
+  }
+  async getCompletedInterventions() {
+    const interventions = await this.prisma.intervention.findMany({
+      where: { status: Status.COMPLETED },
+      include: {
+        appointment: {
+          include: {
+            vehicle: true,
+            service: true,
+          },
+        },
+        interventionPieces: {
+          include: {
+            piece: true,
+          },
+        },
+      },
+    });
+  
+    return interventions;
+  } 
+  async getInProgressInterventionsByServiceId(serviceId: number) {
+    const interventions = await this.prisma.intervention.findMany({
+      where: {
+        status: Status.IN_PROGRESS,
+        appointment: {
+          serviceId: serviceId,
+        },
+      },
+      include: {
+        appointment: {
+          include: {
+            vehicle: true,
+            service: true,
+          },
+        },
+        interventionPieces: {
+          include: {
+            piece: true,
+          },
+        },
+      },
+    });
+  
+    if (interventions.length === 0) {
+      throw new NotFoundException(`Aucune intervention en cours pour le service ${serviceId}`);
+    }
+  
+    return interventions;
+  }
+  async getInProgressInterventionsByCarId(carId: number) {
+    const interventions = await this.prisma.intervention.findMany({
+      where: {
+        status: Status.IN_PROGRESS,
+        appointment: {
+          vehicleId: carId,
+        },
+      },
+      include: {
+        appointment: {
+          include: {
+            vehicle: true,
+            service: true,
+          },
+        },
+        interventionPieces: {
+          include: {
+            piece: true,
+          },
+        },
+      },
+    });
+  
+    if (interventions.length === 0) {
+      throw new NotFoundException(`Aucune intervention en cours pour le véhicule ${carId}`);
+    }
+  
+    return interventions;
+  }
+  async getReservedAppointmentsToday(todayOnly = false) {
+    const today = new Date();
+  
+    return this.prisma.appointment.findMany({
+      where: {
+        status: Status.RESERVED,
+        ...(todayOnly && {
+          date: {
+            gte: startOfDay(today),
+            lte: endOfDay(today),
+          },
+        }),
+      },
+      include: { vehicle: true, service: true },
+    });
+  }
+  // ✅ Récupérer une facture par son ID
+async getInvoiceById(id: number) {
+  const invoice = await this.prisma.invoice.findUnique({
+    where: { id },
+    include: {
+      intervention: {
+        include: {
+          appointment: {
+            include: {
+              vehicle: true,
+              service: true,
+            },
+          },
+          interventionPieces: {
+            include: {
+              piece: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!invoice) {
+    throw new NotFoundException(`Invoice with ID ${id} not found.`);
+  }
+
+  return invoice;
+}
+
+// ❌ Supprimer une facture
+async deleteInvoice(id: number) {
+  const invoice = await this.prisma.invoice.findUnique({
+    where: { id },
+  });
+
+  if (!invoice) {
+    throw new NotFoundException(`Invoice with ID ${id} not found.`);
+  }
+
+  return this.prisma.invoice.delete({
+    where: { id },
+  });
+}
+async rateIntervention(interventionId: number, data: { rate?: number; commentaire?: string }) {
+  const intervention = await this.prisma.intervention.findUnique({
+    where: { id: interventionId },
+  });
+
+  if (!intervention) {
+    throw new NotFoundException("Intervention introuvable.");
+  }
+
+  // ✅ Vérifie que l'intervention est terminée
+  if (intervention.status !== 'COMPLETED') {
+    throw new BadRequestException("Vous ne pouvez évaluer que les interventions terminées.");
+  }
+
+  // ✅ Vérifie la validité de la note
+  if (data.rate !== undefined && (data.rate < 1 || data.rate > 5)) {
+    throw new BadRequestException("La note doit être entre 1 et 5.");
+  }
+
+  const updateData: any = {};
+  if (data.rate !== undefined) updateData.rate = data.rate;
+  if (data.commentaire !== undefined) updateData.commentaire = data.commentaire;
+
+  return this.prisma.intervention.update({
+    where: { id: interventionId },
+    data: updateData,
+  });
+}
+
+
+
   
 }

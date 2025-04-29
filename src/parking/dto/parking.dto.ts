@@ -1,4 +1,5 @@
 import { IsNumber, IsOptional, IsString } from "class-validator"
+import { Type } from "class-transformer";
 
 export class CreateParking{
     @IsString()
@@ -14,6 +15,7 @@ export class UpdateParking{
     @IsString()
     @IsOptional()
     name : string;
+    @Type(() => Number)
     @IsNumber()
     @IsOptional()
     places : number;

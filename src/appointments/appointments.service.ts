@@ -43,7 +43,7 @@ export class AppointmentsService {
     }
 
     const appointmentDateTime = new Date(`${dto.date}T${dto.time}:00`);
-    appointmentDateTime.setHours(appointmentDateTime.getHours() + 1);
+    
     
 
         const existingAppointment = await this.prisma.appointment.findFirst({
@@ -71,6 +71,7 @@ export class AppointmentsService {
                 time: appointmentDateTime,
                 vehicleId: vehicle.id,
                 serviceId: service.id,
+                status : "PENDING"
             },
         });
         
@@ -386,6 +387,108 @@ async cancelAppointment(appointmentId: number) {
     
         return appointments;
     }
+    async getAppointmentsByServiceId(serviceId: number) {
+        return this.prisma.appointment.findMany({
+          where: {
+            serviceId,
+          },
+          include: {
+            vehicle: {
+              select: {
+                brand: true,
+                model: true,
+                year: true,
+                registration: true,
+                positions: {
+                  select: {
+                    location: {
+                      select: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            service: true,
+          },
+        });
+      }
+      async confirmAppointment(appointmentId: number) {
+        const appointment = await this.prisma.appointment.findUnique({
+            where: { id: appointmentId },
+        });
+    
+        if (!appointment) {
+            throw new NotFoundException('Appointment not found!');
+        }
+    
+        if (appointment.status !== 'PENDING') {
+            throw new BadRequestException(`Only appointments with status 'PENDING' can be confirmed.`);
+        }
+    
+        return this.prisma.appointment.update({
+            where: { id: appointmentId },
+            data: {
+                status: 'RESERVED',
+            },
+        });
+    }
+    async getPendingAppointments() {
+        return this.prisma.appointment.findMany({
+            where: {
+                status: 'PENDING',
+            },
+            include: {
+                vehicle: {
+                    select: {
+                        brand: true,
+                        model: true,
+                        year: true,
+                        registration: true,
+                        positions: {
+                            select: {
+                                location: {
+                                    select: {
+                                        name: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                service: true,
+            },
+        });
+    }
+    async getReservedAppointments() {
+        return this.prisma.appointment.findMany({
+            where: {
+                status: 'RESERVED',
+            },
+            include: {
+                vehicle: {
+                    select: {
+                        brand: true,
+                        model: true,
+                        year: true,
+                        registration: true,
+                        positions: {
+                            select: {
+                                location: {
+                                    select: {
+                                        name: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                service: true,
+            },
+        });
+    }
+            
 }    
 
 

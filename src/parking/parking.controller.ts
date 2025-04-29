@@ -13,9 +13,10 @@ export class ParkingController {
                 throw error; 
             }
         }
-    @Put('edit-parking/:id')
+    @Patch('edit-parking/:id')
         async updateParking(@Param('id') id: string, @Body() dto: UpdateParking) {
             try {
+                console.log("📥 Reçu ID:", id);
                 return await this.parkingservice.updateParking(parseInt(id), dto);
             } catch (error) {
                 throw error; 
