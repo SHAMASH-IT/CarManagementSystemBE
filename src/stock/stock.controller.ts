@@ -79,8 +79,19 @@ export class StockController {
     return this.stockService.getAllOrders();
   }
 
-  @Post('orders')
-  placeOrder(@Body() dto: CreateOrderDto) {
+  @Post('order-by-name')
+  async placeOrderByName(
+    @Body()
+    dto: {
+      pieceName: string;
+      quantity: number;
+      userId: number;
+    },
+  ) {
+    if (!dto.pieceName || !dto.quantity || !dto.userId) {
+      throw new BadRequestException('Tous les champs sont requis.');
+    }
+
     return this.stockService.placeOrder(dto);
   }
 

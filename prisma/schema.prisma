@@ -128,6 +128,7 @@ model Piece {
   threshold   Int
   price       Float
   initialPrice Float?
+  marque        String?
   categoryId  Int
   category    Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orders      Order[]
@@ -136,7 +137,7 @@ model Piece {
   // Nouvelle association avec Intervention à travers une table d'association (optionnelle)
   interventionPieces InterventionPiece[]  
 
-  Intervention Intervention[]
+  
 }
 
 model Intervention {
@@ -148,8 +149,7 @@ model Intervention {
   status              Status
   appointmentId       Int?
   appointment         Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  pieceId             Int?
-  piece               Piece?               @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  
 
   rate                Int?                 // Note donnée par le client (optionnelle)
   commentaire         String?              // Commentaire laissé par le client (optionnel)
@@ -163,12 +163,12 @@ model Intervention {
 // Table d'association pour relier Piece et Intervention (optionnelle)
 model InterventionPiece {
   id              Int         @id @default(autoincrement())
-  pieceId         Int?
-  interventionId  Int?
-  quantity        Int?         // Quantité de pièces utilisées dans l'intervention
-  totalPrice      Float?       // Prix total pour cette quantité de pièces
+  pieceId         Int
+  interventionId  Int
+  quantity        Int         // Quantité de pièces utilisées dans l'intervention
+  totalPrice      Float       // Prix total pour cette quantité de pièces
 
-  piece           Piece?       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  piece           Piece       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
   intervention    Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
 }
 

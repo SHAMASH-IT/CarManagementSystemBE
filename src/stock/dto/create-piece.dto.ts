@@ -19,5 +19,11 @@ export class CreatePieceDto {
 
   @IsNumber()
   categoryId: number;
+
+  @IsNumber()
+  initialPrice: number;
+
+  @IsString()
+  marque :string;
 }
     

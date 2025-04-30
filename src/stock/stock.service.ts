@@ -93,40 +93,41 @@ export class StockService {
         });
       }
 
-      async placeOrder(dto: CreateOrderDto) {
-        // Vérifie si la pièce existe
-        const piece = await this.prisma.piece.findUnique({
-          where: { id: dto.pieceId },
+      async placeOrder(dto: { pieceName: string; quantity: number; userId: number }) {
+        // 1. Récupérer la pièce par son nom
+        const piece = await this.prisma.piece.findFirst({
+          where: { name: dto.pieceName },
         });
       
         if (!piece) {
-          throw new BadRequestException("Pièce introuvable.");
+          throw new BadRequestException("Pièce introuvable avec le nom donné.");
         }
       
-        // Vérifie si la quantité demandée est disponible en stock
+        // 2. Vérification de stock
         if (dto.quantity > piece.stock) {
           throw new BadRequestException("Quantité demandée supérieure au stock disponible.");
         }
       
-        // Création de la commande et mise à jour du stock dans une transaction
+        // 3. Créer la commande et mettre à jour le stock
         const [order] = await this.prisma.$transaction([
           this.prisma.order.create({
             data: {
               date: new Date(),
-              status: Status.RESERVED, // Statut de la commande
+              status: Status.RESERVED,
               quantity: dto.quantity,
-              userId: dto.userId, // L'utilisateur qui passe la commande
-              pieceId: dto.pieceId, // Utilise pieceId directement pour la relation
+              userId: dto.userId,
+              pieceId: piece.id, // on utilise l'id trouvé via le nom
             },
           }),
           this.prisma.piece.update({
-            where: { id: dto.pieceId },
-            data: { stock: piece.stock - dto.quantity }, // Mise à jour du stock
+            where: { id: piece.id },
+            data: { stock: piece.stock - dto.quantity },
           }),
         ]);
       
-        return order; // Retourne la commande créée
+        return order;
       }
+      
       async updateOrder(id: number, dto: UpdateOrderDto) {
         const order = await this.prisma.order.findUnique({
           where: { id },

@@ -272,7 +272,7 @@ export class ProgressService {
   
   
   
-  
+  /*
   async createInterventionFromOrder(orderId: number, description: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -358,7 +358,7 @@ export class ProgressService {
       invoice: invoice,
       order: updatedOrder,
     };
-  }
+  }*/
   async getInProgressInterventions() {
     const interventions = await this.prisma.intervention.findMany({
       where: { status: Status.IN_PROGRESS },
@@ -377,9 +377,7 @@ export class ProgressService {
       },
     });
   
-    if (interventions.length === 0) {
-      throw new NotFoundException("Aucune intervention en cours.");
-    }
+   
   
     return interventions;
   }
@@ -444,9 +442,7 @@ export class ProgressService {
       },
     });
   
-    if (interventions.length === 0) {
-      throw new NotFoundException(`Aucune intervention en cours pour le service ${serviceId}`);
-    }
+    
   
     return interventions;
   }
@@ -473,9 +469,7 @@ export class ProgressService {
       },
     });
   
-    if (interventions.length === 0) {
-      throw new NotFoundException(`Aucune intervention en cours pour le véhicule ${carId}`);
-    }
+   
   
     return interventions;
   }
