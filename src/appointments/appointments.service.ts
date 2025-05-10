@@ -27,14 +27,21 @@ export class AppointmentsService {
             throw new NotFoundException('Service not found!');
         }
          // 🚫 Vérifier si ce véhicule a déjà un RDV actif
-    const activeAppointment = await this.prisma.appointment.findFirst({
-        where: {
-            vehicleId: vehicle.id,
-            status: {
-                in: ['RESERVED', 'IN_PROGRESS'],
-            },
-        },
-    });
+         const appointmentDayStart = new Date(dto.date + 'T00:00:00');
+         const appointmentDayEnd = new Date(dto.date + 'T23:59:59');
+         
+         const activeAppointment = await this.prisma.appointment.findFirst({
+             where: {
+                 vehicleId: vehicle.id,
+                 status: {
+                     in: ['RESERVED', 'IN_PROGRESS','PENDING'],
+                 },
+                 date: {
+                     gte: appointmentDayStart,
+                     lte: appointmentDayEnd,
+                 },
+             },
+         });
 
     if (activeAppointment) {
         throw new ConflictException(
@@ -202,6 +209,7 @@ async cancelAppointment(appointmentId: number) {
             this.prisma.appointment.update({
                 where: { id: appointmentId },
                 data: updatedData,
+                
             }),
             ...(oldLocationId ? [
                 this.prisma.location.update({
@@ -209,6 +217,11 @@ async cancelAppointment(appointmentId: number) {
                     data: { status: 'EMPTY' },
                 })
             ] : []),
+            this.prisma.appointment.update({
+                where: { id: appointmentId },
+                data: {status:"PENDING"},
+                
+            }),
             this.prisma.location.update({
                 where: { id: newLocation.id },
                 data: { status: 'OCCUPIED' },

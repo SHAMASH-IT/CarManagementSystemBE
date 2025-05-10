@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateParking,UpdateParking } from './dto';
 
@@ -48,7 +48,20 @@ export class ParkingService {
         if (!parking) {
             throw new NotFoundException('Parking non trouvé !');
         }
+        if (dto.places !== undefined && dto.places !== parking.places) {
+            const occupiedLocations = await this.prisma.location.findMany({
+                where: {
+                    parkingId: id,
+                    status: 'OCCUPIED',
+                },
+            });
     
+            if (occupiedLocations.length > 0) {
+                throw new ConflictException(
+                    'Impossible de modifier le nombre de places car certaines locations sont actuellement occupées.'
+                );
+            }
+        }
         // Mettre à jour le parking
         const updatedParking = await this.prisma.parking.update({
             where: { id },

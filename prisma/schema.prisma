@@ -12,7 +12,10 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
+enum StatusOrder {
+BUYING
+SELLING
+}
 enum Status {
   RESERVED
   PENDING
@@ -31,12 +34,15 @@ enum Role {
   ADMIN
   CLIENT
   PROVIDER
+  SUPPLIER
 }
 
 model Service {
   id          Int           @id @default(autoincrement())
   name        String
   description String
+   providerId  Int
+  provider    User          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   parking     Parking[]
   appointments Appointment[]
 }
@@ -51,6 +57,8 @@ model User {
   vehicles  Vehicle[]
   orders    Order[]
   
+
+  services Service[]
 }
 
 model Vehicle {
@@ -123,7 +131,7 @@ model Category {
 
 model Piece {
   id          Int            @id @default(autoincrement())
-  name        String
+  name        String 
   stock       Int
   threshold   Int
   price       Float
@@ -138,6 +146,8 @@ model Piece {
   interventionPieces InterventionPiece[]  
 
   
+
+  OrderPiece OrderPiece[]
 }
 
 model Intervention {
@@ -174,14 +184,25 @@ model InterventionPiece {
 
 
 model Order {
-  id          Int     @id @default(autoincrement())
-  date        DateTime
-  status      Status
-  quantity    Int 
-  pieceId     Int
-  piece       Piece   @relation(fields: [pieceId], references: [id],onDelete: Cascade)
-  userId      Int
-  user        User    @relation(fields: [userId], references: [id],onDelete: Cascade)
+  id        Int            @id @default(autoincrement())
+  date      DateTime
+  status    Status
+  userId    Int ?
+  user      User ?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderPieces OrderPiece[] // Liste des pièces associées à cette commande
+  ordertype  StatusOrder
+  Piece Piece[]
+}
+
+model OrderPiece {
+  id       Int     @id @default(autoincrement())
+  quantity Int     // Quantité de cette pièce dans la commande
+
+  orderId  Int
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  pieceId  Int
+  piece    Piece   @relation(fields: [pieceId], references: [id], onDelete: Cascade)
 }
 
 model Invoice {

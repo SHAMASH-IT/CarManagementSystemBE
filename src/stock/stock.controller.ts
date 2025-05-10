@@ -79,34 +79,34 @@ export class StockController {
     return this.stockService.getAllOrders();
   }
 
-  @Post('order-by-name')
-  async placeOrderByName(
-    @Body()
-    dto: {
-      pieceName: string;
-      quantity: number;
-      userId: number;
-    },
+  @Post('selling')
+  async placeOrderSelling(
+    @Body() dto: { pieces: { pieceId: number, quantity: number }[], userId: number }
   ) {
-    if (!dto.pieceName || !dto.quantity || !dto.userId) {
-      throw new BadRequestException('Tous les champs sont requis.');
+    try {
+      return await this.stockService.placeOrderSelling(dto);
+    } catch (error) {
+      throw new BadRequestException(error.message);
     }
-
-    return this.stockService.placeOrder(dto);
   }
 
-  @Patch('orders/:id')
-  updateOrder(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateOrderDto) {
-    return this.stockService.updateOrder(id, dto);
-  }
-  @Patch('orders/:id/cancel')
-  cancelOrder(@Param('id', ParseIntPipe) id: number) {
-    return this.stockService.cancelOrder(id);
+  
+  @Patch('selling/cancel/:id')
+  async cancelOrderSelling(@Param('id') id: number) {
+    try {
+      return await this.stockService.cancelOrderSelling(id);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
-  @Patch('orders/:id/complete')
-  completeOrder(@Param('id', ParseIntPipe) id: number) {
-    return this.stockService.completeOrder(id);
+ @Patch('selling/complete/:id')
+  async completeOrderSelling(@Param('id') id: number) {
+    try {
+      return await this.stockService.completeOrderSelling(id);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
   @Get('pieces/category/:categoryId')
 getPiecesByCategory(@Param('categoryId') categoryId: string) {
@@ -114,5 +114,57 @@ getPiecesByCategory(@Param('categoryId') categoryId: string) {
   if (isNaN(id)) throw new BadRequestException('ID invalide');
   return this.stockService.getAllPiecesByCategory(id);
 }
+@Post('buying')
+  async placeOrderBuying(
+    @Body() dto: { pieces: { pieceId: number, quantity: number }[], userId: number }
+  ) {
+    try {
+      return await this.stockService.placeOrderBuying(dto);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
 
+  @Patch('buying/cancel/:id')
+  async cancelOrderBuying(@Param('id') id: number) {
+    try {
+      return await this.stockService.cancelOrderBuying(id);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Patch('buying/complete/:id')
+  async completeOrderBuying(@Param('id') id: number) {
+    try {
+      return await this.stockService.completeOrderBuying(id);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+   @Get('buying/:userId')
+  async getOrderBuyingBySupplier(@Param('userId') userId: number) {
+    try {
+      return await this.stockService.getOrderBuyingBySupplier(userId);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+  @Get('selling')
+  async getOrderSelling() {
+    try {
+      return await this.stockService.getOrderSelling();
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Get('buying')
+  async getOrderBuying() {
+    try {
+      return await this.stockService.getOrderBuying();
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
 }
