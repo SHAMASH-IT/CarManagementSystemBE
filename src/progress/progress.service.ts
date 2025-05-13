@@ -217,7 +217,7 @@ export class ProgressService {
   
       // Vérification de null pour interventionPiece.piece
       if (interventionPiece.piece?.id && interventionPiece.piece?.price != null) {
-        totalPrice += quantity * interventionPiece.piece.price;
+       /* totalPrice += quantity * interventionPiece.piece.price;*/
   
         if (quantity > 0) {
           await this.prisma.piece.update({

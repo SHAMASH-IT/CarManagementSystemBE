@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from '../users/dto/update-user.dto';
@@ -88,6 +88,13 @@ export class UsersService {
     });
   }
   async createVehicle(dto: CreateVehicleDto): Promise<Vehicle> {
+    const existingVehicle = await this.prisma.vehicle.findFirst({
+      where: { registration: dto.registration },
+    });
+  
+    if (existingVehicle) {
+      throw new BadRequestException('Ce matricule est déjà enregistré.');
+    }
     return this.prisma.vehicle.create({
       data: {
         brand: dto.brand,
@@ -115,6 +122,13 @@ export class UsersService {
 
   // 3. Mettre à jour un véhicule
   async updateVehicle(id: number, dto: UpdateVehicleDto): Promise<Vehicle> {
+    const existingVehicle = await this.prisma.vehicle.findFirst({
+      where: { registration: dto.registration },
+    });
+  
+    if (existingVehicle) {
+      throw new BadRequestException('Ce matricule est déjà enregistré.');
+    }
     const vehicle = await this.prisma.vehicle.update({
       where: {  id: parseInt(id.toString(), 10)},
       data: {

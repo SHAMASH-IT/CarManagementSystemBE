@@ -9,9 +9,10 @@ import { JwtStrategy } from './jwt.strategy';
         // Module JWT pour la gestion des tokens
     PassportModule,
     JwtModule.register({
-      secret:  'mySecret', 
-      signOptions: { expiresIn: '1d' },
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN },
     }),
+    
   ],
   controllers: [AuthController ],
   providers: [AuthService, JwtStrategy],
