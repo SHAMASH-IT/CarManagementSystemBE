@@ -16,4 +16,6 @@ export class CreateUserDto {
 
   @IsEnum(Role)
   role: Role;
+    @IsString()
+    matf?: string;
 }

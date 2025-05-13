@@ -126,4 +126,12 @@ async getCompletedInterventions() {
   ) {
     return this.progressService.rateIntervention(id, body);
   }
+  @Get(':id/client-provider')
+  async getClientAndProvider(@Param('id') id: number) {
+    return await this.progressService.getClientAndProviderFromAppointment(Number(id));
+  }
+   @Get('intervention/:id/client-provider')
+  async getClientAndProviderintervention(@Param('id') id: number) {
+    return await this.progressService.getClientAndProviderFromIntervention(Number(id));
+  }
 }

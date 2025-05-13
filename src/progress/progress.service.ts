@@ -90,7 +90,13 @@ export class ProgressService {
       where: { id: appointment.id },
       data: { status: Status.IN_PROGRESS },
     });
-  
+  await this.prisma.notification.create({
+        data: {
+            message: `Votre intervention est commancer à ${intervention.startDate} .`,
+            type: 'Intervention commance',
+            appointmentId: appointment.id,
+        },
+    });
     return intervention;
   }
   
@@ -179,7 +185,13 @@ export class ProgressService {
         data: interventionPiecesData,
       });
     }
-  
+  await this.prisma.notification.create({
+        data: {
+            message: `Votre intervention est progresser .`,
+            type: 'Intervention progresser',
+           interventionId : intervention.id
+        },
+    });
     return updatedIntervention;
   }
   
@@ -266,7 +278,13 @@ export class ProgressService {
         interventionId: updatedIntervention.id,
       },
     });
-  
+  await this.prisma.notification.create({
+        data: {
+            message: `Votre intervention est completer .`,
+            type: 'Intervention completer',
+           interventionId : intervention.id
+        },
+    });
     return { updatedIntervention, invoice };
   }
   
@@ -562,7 +580,74 @@ async rateIntervention(interventionId: number, data: { rate?: number; commentair
   });
 }
 
-
+ async getClientAndProviderFromAppointment(appointmentId: number) {
+    return await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        vehicle: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                matf: true,
+              },
+            },
+          },
+        },
+        service: {
+          select: {
+            provider: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+async getClientAndProviderFromIntervention(interventionId: number) {
+    return await this.prisma.intervention.findUnique({
+      where: { id: interventionId },
+      select: {
+        appointment: {
+          select: {
+            vehicle: {
+              select: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                     matf: true,
+                  },
+                },
+              },
+            },
+            service: {
+              select: {
+                provider: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 
   
 }

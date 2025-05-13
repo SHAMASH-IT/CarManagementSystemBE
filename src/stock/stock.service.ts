@@ -519,4 +519,18 @@ async getOrderSelling() {
       },
     });
   }
+  async getSuppliers() {
+  
+      const suppliers = await this.prisma.user.findMany({
+        where: { role: 'SUPPLIER' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      });
+
+      return suppliers;
+    }
 }

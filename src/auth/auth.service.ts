@@ -10,7 +10,7 @@ export class AuthService {
     private jwt: JwtService
   ) {}
 
-  async signup(name: string, email: string, password: string, phone: string) {
+  async signup(name: string, email: string, password: string, phone: string , matf:string) {
     const hash = await bcrypt.hash(password, 10);
     try {
       const user = await this.prisma.user.create({
@@ -19,11 +19,12 @@ export class AuthService {
           email,
           phone,
           hash,
+          matf,
         },
       });
       return this.signToken(user.id, user.email, user.role);
     } catch (err) {
-      throw new ForbiddenException('Email déjà utilisé');
+      throw new ForbiddenException('Email ou telephone déjà utilisé');
     }
   }
 
