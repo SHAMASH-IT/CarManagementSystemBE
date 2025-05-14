@@ -1,10 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Status } from '@prisma/client';
+import * as Sentiment from 'sentiment'; 
+import nlp from 'compromise';
+import axios from 'axios';
 import { startOfDay, endOfDay, subDays, subYears } from 'date-fns';
+interface OpenAIResponse {
+  choices: {
+    message: any; text: string 
+}[];
+}
 @Injectable()
 export class ReportsService {constructor(private prisma: PrismaService) {}
-
+ private readonly apiUrl = 'https://api.openai.com/v1/chat/completions';  // Remplace par ton URL API
+  private readonly apiKey = process.env.AI_API_KEY; 
   // 1. Get today's appointments
    async getTodayAppointments() {
     const today = new Date();
@@ -200,7 +209,159 @@ async countVisibleVehicles(): Promise<number> {
     },
   });
 }
+ private sentiment = new Sentiment();
+private analyzeSentiment(comment: string): string {
+  const result = this.sentiment.analyze(comment);
+  if (result.score > 0) return 'Positive';
+  if (result.score < 0) return 'Negative';
+  return 'Neutral';
 }
+
+// Fonction pour récupérer les commentaires et analyser les sentiments
+async getCommentsAndAnalyzeSentiment() {
+  const interventions = await this.prisma.intervention.findMany({
+    include: {
+      appointment: {
+        select: {
+          service: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const commentsByService: Record<string, { comments: string[], sentiments: string[] }> = {};
+
+  interventions.forEach((intervention) => {
+    const serviceName = intervention.appointment?.service?.name || 'Unknown';
+    if (!commentsByService[serviceName]) {
+      commentsByService[serviceName] = { comments: [], sentiments: [] };
+    }
+
+    if (intervention.commentaire) {
+      // Ajouter le commentaire
+      commentsByService[serviceName].comments.push(intervention.commentaire);
+      
+      // Analyser le sentiment du commentaire
+      const sentiment = this.analyzeSentiment(intervention.commentaire);
+      commentsByService[serviceName].sentiments.push(sentiment);
+    }
+  });
+
+  return commentsByService;
+}
+
+// Fonction pour générer un résumé complet par service avec statistiques sur les sentiments
+async generateSentimentAnalysis() {
+  const commentsByService = await this.getCommentsAndAnalyzeSentiment();
+  const analysis: Record<string, any> = {};
+
+  for (const [serviceName, data] of Object.entries(commentsByService)) {
+    const sentiments = data.sentiments;
+    const stats = {
+      positive: sentiments.filter(s => s === 'Positive').length,
+      negative: sentiments.filter(s => s === 'Negative').length,
+      neutral: sentiments.filter(s => s === 'Neutral').length,
+      total: data.comments.length,
+    };
+
+    analysis[serviceName] = { stats, comments: data.comments };
+  }
+
+  return analysis;
+}
+async getTotalInvoicesAmountByService(serviceId: number): Promise<number> {
+  const result = await this.prisma.invoice.aggregate({
+    _sum: { total: true },
+    where: {
+      intervention: { appointment: { serviceId: serviceId } },
+    },
+  });
+  return result._sum.total || 0;
+}
+ async getTotalInvoicesAmount(): Promise<number> {
+    const result = await this.prisma.invoice.aggregate({
+      _sum: { total: true },
+    });
+    return result._sum.total || 0;
+  }
+
+  // Calculer le montant total des factures sur une période donnée (en jours)
+ async getInvoicesAmountByPeriod(days: number): Promise<number> {
+  const dateThreshold = new Date();
+  dateThreshold.setDate(dateThreshold.getDate() - days);
+
+  const result = await this.prisma.invoice.aggregate({
+    _sum: { total: true },
+    where: { createdAt: { gte: dateThreshold } },
+  });
+  return result._sum.total || 0;
+}
+
+async getLast28DaysInvoicesAmount(): Promise<number> {
+  return await this.getInvoicesAmountByPeriod(28);
+}
+
+async getLast70DaysInvoicesAmount(): Promise<number> {
+  return await this.getInvoicesAmountByPeriod(70);
+}
+
+async getLast90DaysInvoicesAmount(): Promise<number> {
+  return await this.getInvoicesAmountByPeriod(90);
+}
+
+async getYearInvoicesAmount(): Promise<number> {
+  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+  const result = await this.prisma.invoice.aggregate({
+    _sum: { total: true },
+    where: { createdAt: { gte: startOfYear } },
+  });
+  return result._sum.total || 0;
+}
+
+  async getInvoicesAmountByServiceAndPeriod(serviceId: number, days: number): Promise<number> {
+  const dateThreshold = new Date();
+  dateThreshold.setDate(dateThreshold.getDate() - days);
+
+  const result = await this.prisma.invoice.aggregate({
+    _sum: { total: true },
+    where: {
+      createdAt: { gte: dateThreshold },
+      intervention: { appointment: { serviceId: serviceId } },
+    },
+  });
+  return result._sum.total || 0;
+}
+
+async getLast28DaysInvoicesByService(serviceId: number): Promise<number> {
+  return this.getInvoicesAmountByServiceAndPeriod(serviceId, 28);
+}
+
+async getLast70DaysInvoicesByService(serviceId: number): Promise<number> {
+  return this.getInvoicesAmountByServiceAndPeriod(serviceId, 70);
+}
+
+async getLast90DaysInvoicesByService(serviceId: number): Promise<number> {
+  return this.getInvoicesAmountByServiceAndPeriod(serviceId, 90);
+}
+
+async getYearInvoicesByService(serviceId: number): Promise<number> {
+  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+  const result = await this.prisma.invoice.aggregate({
+    _sum: { total: true },
+    where: {
+      createdAt: { gte: startOfYear },
+      intervention: { appointment: { serviceId: serviceId } },
+    },
+  });
+  return result._sum.total || 0;
+}
+ }
 
 
 

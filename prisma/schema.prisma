@@ -43,7 +43,7 @@ enum Role {
 
 model Service {
   id          Int           @id @default(autoincrement())
-  name        String
+  name        String         @unique
   description String
    providerId  Int
   provider    User          @relation(fields: [providerId], references: [id], onDelete: Cascade)
@@ -210,6 +210,8 @@ model Order {
   orderPieces OrderPiece[] // Liste des pièces associées à cette commande
   ordertype  StatusOrder
   Piece Piece[]
+
+  Invoice Invoice[]
 }
 
 model OrderPiece {
@@ -228,7 +230,9 @@ model Invoice {
   total           Float       // Montant total de la facture
   description     String      // Description de la facture
   createdAt       DateTime    @default(now())  // Date de création
-  intervention    Intervention @relation(fields: [interventionId], references: [id])
-  interventionId  Int         // Référence à l'intervention
+  intervention    Intervention? @relation(fields: [interventionId], references: [id])
+  interventionId  Int?         // Référence à l'intervention
+  order    Order?               @relation(fields: [orderId], references: [id])
+  orderId  Int?                 // Référence à l'intervention
 }
 

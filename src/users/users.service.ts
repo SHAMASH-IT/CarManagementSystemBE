@@ -283,139 +283,115 @@ const updatedVehicle = await this.prisma.vehicle.update({
     return user;
   }
   async getUnreadUserNotifications(userId: number) {
-    
-      // Récupérer les notifications non lues des rendez-vous de l'utilisateur
-      const appointmentNotifications = await this.prisma.notification.findMany({
-        where: {
-          read: false,  // ✅ Récupérer uniquement les notifications non lues
+  // Récupérer toutes les notifications non lues liées aux rendez-vous ou interventions de l'utilisateur
+  const notifications = await this.prisma.notification.findMany({
+    where: {
+      read: false,
+      OR: [
+        // Notifications des rendez-vous liés aux véhicules de l'utilisateur
+        {
           appointment: {
             vehicle: {
               userId: userId,
             },
           },
         },
-        include: {
-          appointment: {
-            select: {
-              id: true,
-              date: true,
-              time: true,
-            },
-          },
-        },
-      });
-
-      // Récupérer les notifications non lues des interventions de l'utilisateur
-      const interventionNotifications = await this.prisma.notification.findMany({
-        where: {
-          read: false,  // ✅ Récupérer uniquement les notifications non lues
-          appointment: {
-            interventions: {
-              some: {
-                appointment: {
-                  vehicle: {
-                    userId: userId,
-                  },
-                },
+        // Notifications des interventions liées aux véhicules de l'utilisateur
+        {
+          intervention: {
+            appointment: {
+              vehicle: {
+                userId: userId,
               },
             },
           },
         },
-        include: {
-          appointment: {
-            select: {
-              id: true,
-              date: true,
-              time: true,
-              interventions: {
-                select: {
-                  id: true,
-                  description: true,
-                  status: true,
-                },
-              },
-            },
-          },
+      ],
+    },
+    include: {
+      appointment: {
+        select: {
+          id: true,
+          date: true,
+          time: true,
         },
-      });
+      },
+      intervention: {
+        select: {
+          id: true,
+          description: true,
+          status: true,
+        },
+      },
+    },
+  });
 
-      // Fusionner les deux listes de notifications non lues
-      const allUnreadNotifications = [...appointmentNotifications, ...interventionNotifications];
-      return allUnreadNotifications;
-    
-  }
+  return notifications;
+}
 async markAllNotificationsAsRead(userId: number) {
-const result = await this.prisma.notification.updateMany({
-        where: {
-          read: false,
-          OR: [
-            // Notifications liées aux rendez-vous du véhicule de l'utilisateur
-            {
-              appointment: {
-                vehicle: {
-                  userId: userId,
-                },
-              },
-            },
-            // Notifications liées aux interventions de l'utilisateur
-            {
-              appointment: {
-                interventions: {
-                  some: {
-                    appointment: {
-                      vehicle: {
-                        userId: userId,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          ],
-        },
-        data: {
-          read: true,
-        },
-      });
-
-      return {
-        message: `${result.count} notifications marquées comme lues.`,
-        updatedCount: result.count,
-      };}
-async countUnreadNotifications(userId: number): Promise<number> {
-  
-      // Compter les notifications non lues liées aux rendez-vous de l'utilisateur
-      const appointmentNotificationsCount = await this.prisma.notification.count({
-        where: {
-          read: false,
+  const result = await this.prisma.notification.updateMany({
+    where: {
+      read: false,
+      OR: [
+        // Notifications liées aux rendez-vous des véhicules de l'utilisateur
+        {
           appointment: {
             vehicle: {
               userId: userId,
             },
           },
         },
-      });
-
-      // Compter les notifications non lues liées aux interventions de l'utilisateur
-      const interventionNotificationsCount = await this.prisma.notification.count({
-        where: {
-          read: false,
-          appointment: {
-            interventions: {
-              some: {
-                appointment: {
-                  vehicle: {
-                    userId: userId,
-                  },
-                },
+        // Notifications liées aux interventions des véhicules de l'utilisateur
+        {
+          intervention: {
+            appointment: {
+              vehicle: {
+                userId: userId,
               },
             },
           },
         },
-      });
+      ],
+    },
+    data: {
+      read: true,
+    },
+  });
 
-      // Retourner le total des notifications non lues
-      return appointmentNotificationsCount + interventionNotificationsCount;
-    } 
+  return {
+    message: `${result.count} notifications marquées comme lues.`,
+    updatedCount: result.count,
+  };
+}
+async countUnreadNotifications(userId: number): Promise<number> {
+  // Compter les notifications non lues liées aux rendez-vous de l'utilisateur
+  const appointmentNotificationsCount = await this.prisma.notification.count({
+    where: {
+      read: false,
+      appointment: {
+        vehicle: {
+          userId: userId,
+        },
+      },
+    },
+  });
+
+  // Compter les notifications non lues liées aux interventions de l'utilisateur
+  const interventionNotificationsCount = await this.prisma.notification.count({
+    where: {
+      read: false,
+      intervention: {
+        appointment: {
+          vehicle: {
+            userId: userId,
+          },
+        },
+      },
+    },
+  });
+
+  // Retourner le total des notifications non lues
+  return appointmentNotificationsCount + interventionNotificationsCount;
+}
   }
 

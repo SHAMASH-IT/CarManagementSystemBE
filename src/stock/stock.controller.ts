@@ -171,4 +171,8 @@ getPiecesByCategory(@Param('categoryId') categoryId: string) {
   async getSuppliers() {
     return await this.stockService.getSuppliers();
   }
+  @Get('invoice/:orderId')
+async getInvoiceByOrder(@Param('orderId') orderId: number) {
+  return this.stockService.getInvoiceByOrderId(+orderId);
+}
 }

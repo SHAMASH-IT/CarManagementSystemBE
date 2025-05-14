@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreatePieceDto } from './dto/create-piece.dto';
@@ -330,7 +330,7 @@ async cancelOrderSelling(id: number) {
 }*/
 
 
-     async completeOrderSelling(id: number) {
+ async completeOrderSelling(id: number) {
   // Convertir l'ID en nombre
   const orderId = Number(id);
 
@@ -339,8 +339,14 @@ async cancelOrderSelling(id: number) {
     throw new BadRequestException("L'ID fourni n'est pas un nombre valide.");
   }
 
+  // Récupérer la commande avec les pièces associées
   const order = await this.prisma.order.findUnique({
     where: { id: orderId },
+    include: { 
+      orderPieces: { 
+        include: { piece: true } // Inclure chaque pièce dans les orderPieces
+      } 
+    },
   });
 
   if (!order) {
@@ -351,11 +357,30 @@ async cancelOrderSelling(id: number) {
     throw new BadRequestException("Cette commande est déjà terminée ou annulée.");
   }
 
-  return this.prisma.order.update({
+  // Calculer le total de la facture
+  const total = order.orderPieces.reduce((acc, orderPiece) => {
+    const pieceTotal = orderPiece.quantity * orderPiece.piece.price;
+    return acc + pieceTotal;
+  }, 0);
+
+  // Créer la facture
+  const invoice = await this.prisma.invoice.create({
+    data: {
+      total: total,
+      description: `Facture pour la commande n°${orderId}`,
+      orderId: orderId,
+    },
+  });
+
+  // Mettre à jour l'état de la commande en "COMPLETED"
+  await this.prisma.order.update({
     where: { id: orderId },
     data: { status: 'COMPLETED' },
   });
+
+  return { order, invoice };
 }
+
 
       async getAllPiecesByCategory(categoryId: number) {
         const category = await this.prisma.category.findUnique({
@@ -533,4 +558,15 @@ async getOrderSelling() {
 
       return suppliers;
     }
+    async getInvoiceByOrderId(orderId: number) {
+  const invoice = await this.prisma.invoice.findFirst({
+    where: { orderId },
+  });
+
+  if (!invoice) {
+    throw new NotFoundException(`Aucune facture trouvée pour la commande n°${orderId}.`);
+  }
+
+  return invoice;
+}
 }
