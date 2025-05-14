@@ -186,7 +186,20 @@ async getProviderAverageRate() {
 
   return result;
 }
-
+async countClients(): Promise<number> {
+  return await this.prisma.user.count({
+    where: {
+      role: 'CLIENT',
+    },
+  });
+}
+async countVisibleVehicles(): Promise<number> {
+  return await this.prisma.vehicle.count({
+    where: {
+      statut: 'VISIBLE',
+    },
+  });
+}
 }
 
 

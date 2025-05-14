@@ -95,7 +95,13 @@ export class AppointmentsService {
                 },
             }),
         ]);
-        
+        await this.prisma.notification.create({
+        data: {
+            message: `Votre rendez-vous est créé pour le ${dto.date} à ${dto.time}.`,
+            type: 'Appointment Created',
+            appointmentId: appointment.id,
+        },
+    });
         return appointment;
 
     }
@@ -127,7 +133,13 @@ async cancelAppointment(appointmentId: number) {
     const locationId = appointment.vehicle.positions.find(
         (p) => p.appointmentId === appointmentId
     )?.locationId;
-
+await this.prisma.notification.create({
+        data: {
+            message: `Votre rendez-vous est Annuler`,
+            type: 'Appointment Annuler',
+            appointmentId: appointment.id,
+        },
+    });
     return this.prisma.$transaction([
         this.prisma.position.deleteMany({
             where: { appointmentId },
@@ -145,6 +157,7 @@ async cancelAppointment(appointmentId: number) {
               ]
             : []),
     ]);
+    
 }
 
         // Update appointment date and/or time
@@ -439,7 +452,13 @@ async cancelAppointment(appointmentId: number) {
         if (appointment.status !== 'PENDING') {
             throw new BadRequestException(`Only appointments with status 'PENDING' can be confirmed.`);
         }
-    
+    await this.prisma.notification.create({
+        data: {
+            message: `Votre rendez-vous est accepter`,
+            type: 'Appointment accepter',
+            appointmentId: appointment.id,
+        },
+    });
         return this.prisma.appointment.update({
             where: { id: appointmentId },
             data: {

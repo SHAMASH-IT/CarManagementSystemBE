@@ -27,9 +27,35 @@ export class UsersService {
     return this.prisma.user.findMany();  // Cette ligne récupère tous les utilisateurs
   }
   
+async getUserByEmail(email: string) {
+  const user = await this.prisma.user.findUnique({
+    where: {
+      email,
+    },
+  });
 
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+  return user;
+}
   // 2. Créer un nouvel utilisateur
   async createUser(createUserDto: any) {
+   const existingEmail = await this.prisma.user.findUnique({
+    where: { email: createUserDto.email },
+  });
+
+  if (existingEmail) {
+    throw new BadRequestException('Email is already in use');
+  }
+
+  const existingPhone = await this.prisma.user.findUnique({
+    where: { phone: createUserDto.phone },
+  });
+
+  if (existingPhone) {
+    throw new BadRequestException('Phone number is already in use');
+  }
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const user = await this.prisma.user.create({
       data: {
@@ -37,7 +63,8 @@ export class UsersService {
         email: createUserDto.email,
         hash: hashedPassword,  // Utilisation du champ hash pour le mot de passe
         phone: createUserDto.phone,
-        role: createUserDto.role || 'CLIENT',  // Utilisation d'un rôle par défaut si non spécifié
+        role: createUserDto.role || 'CLIENT', 
+        matf : createUserDto.matf  // Utilisation d'un rôle par défaut si non spécifié
       }
     });
     return user;
@@ -45,7 +72,7 @@ export class UsersService {
 
   // 3. Mettre à jour un utilisateur (y compris le mot de passe)
   async updateUser(id: number, updateUserDto: UpdateUserDto): Promise<void> {
-    const { name, email, phone, newPassword, role } = updateUserDto; // Ajoute role au destructuring
+    const { name, email, phone, newPassword, role , matf} = updateUserDto; // Ajoute role au destructuring
   
     // Vérifier si l'utilisateur existe
     const user = await this.prisma.user.findUnique({
@@ -55,9 +82,28 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-  
+   // Vérification de l'unicité de l'email et du téléphone
+  if (email && email !== user.email) {
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingEmail) {
+      throw new BadRequestException('Email is already in use');
+    }
+  }
+
+  if (phone && phone !== user.phone) {
+    const existingPhone = await this.prisma.user.findUnique({
+      where: { phone },
+    });
+
+    if (existingPhone) {
+      throw new BadRequestException('Phone number is already in use');
+    }
+  }
     // Préparer les données de mise à jour
-    let updatedData: any = { name, email, phone, role }; // Utilisation correcte du champ 'role'
+    let updatedData: any = { name, email, phone, role , matf}; // Utilisation correcte du champ 'role'
   
     // Si un mot de passe est fourni, le hacher et le mettre à jour
     if (newPassword) {
@@ -148,25 +194,75 @@ export class UsersService {
 
   // 4. Supprimer un véhicule
   async deleteVehicle(id: number): Promise<Vehicle> {
-    const vehicle = await this.prisma.vehicle.delete({
-      where: {  id: parseInt(id.toString(), 10) },
+  // Vérifier si le véhicule existe
+  const vehicle = await this.prisma.vehicle.findUnique({
+    where: { id: parseInt(id.toString(), 10) },
+    include: {
+      appointments: {
+        include: {
+          positions: true, // Inclure les positions liées à chaque rendez-vous
+        },
+      },
+    },
+  });
+
+  if (!vehicle) {
+    throw new Error('Vehicle not found');
+  }
+
+  // Créer les transactions pour chaque rendez-vous
+  const transactions = vehicle.appointments
+    .filter((appointment) => ['PENDING', 'RESERVED'].includes(appointment.status))
+    .flatMap((appointment) => {
+      // Récupérer l'ID de la location associée au rendez-vous
+      const locationId = appointment.positions.find(
+        (p) => p.appointmentId === appointment.id
+      )?.locationId;
+
+      return [
+        // Supprimer les positions associées au rendez-vous
+        this.prisma.position.deleteMany({
+          where: { appointmentId: appointment.id },
+        }),
+        // Mettre à jour le statut du rendez-vous en CANCELED
+        this.prisma.appointment.update({
+          where: { id: appointment.id },
+          data: { status: 'CANCELLED' },
+        }),
+        // Mettre à jour la location si elle existe
+        ...(locationId
+          ? [
+              this.prisma.location.update({
+                where: { id: locationId },
+                data: { status: 'EMPTY' },
+              }),
+            ]
+          : []),
+      ];
     });
 
-    if (!vehicle) {
-      throw new Error('Vehicle not found');
-    }
+  // Ajouter la mise à jour du statut du véhicule en HIDDEN
+  
 
-    return vehicle;
-  }
+  // Exécuter toutes les transactions dans une transaction Prisma
+  await this.prisma.$transaction(transactions);
+const updatedVehicle = await this.prisma.vehicle.update({
+    where: { id: vehicle.id },
+    data: { statut: 'HIDDEN' },
+  });
+  return updatedVehicle;
+}
+
 
   // 5. Récupérer tous les véhicules d'un utilisateur
   async getVehiclesByUserId(userId: number): Promise<Vehicle[]> {
-    return this.prisma.vehicle.findMany({
-      where: { 
-        userId: parseInt(userId.toString(), 10)
-       },
-    });
-  }
+  return this.prisma.vehicle.findMany({
+    where: {
+      userId: parseInt(userId.toString(), 10),
+      statut: 'VISIBLE', // Vérifie que le statut est HIDDEN
+    },
+  });
+}
   async getMe(userId: number) {
  
     if (!userId) {
@@ -186,5 +282,141 @@ export class UsersService {
   
     return user;
   }
+  async getUnreadUserNotifications(userId: number) {
+    
+      // Récupérer les notifications non lues des rendez-vous de l'utilisateur
+      const appointmentNotifications = await this.prisma.notification.findMany({
+        where: {
+          read: false,  // ✅ Récupérer uniquement les notifications non lues
+          appointment: {
+            vehicle: {
+              userId: userId,
+            },
+          },
+        },
+        include: {
+          appointment: {
+            select: {
+              id: true,
+              date: true,
+              time: true,
+            },
+          },
+        },
+      });
+
+      // Récupérer les notifications non lues des interventions de l'utilisateur
+      const interventionNotifications = await this.prisma.notification.findMany({
+        where: {
+          read: false,  // ✅ Récupérer uniquement les notifications non lues
+          appointment: {
+            interventions: {
+              some: {
+                appointment: {
+                  vehicle: {
+                    userId: userId,
+                  },
+                },
+              },
+            },
+          },
+        },
+        include: {
+          appointment: {
+            select: {
+              id: true,
+              date: true,
+              time: true,
+              interventions: {
+                select: {
+                  id: true,
+                  description: true,
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Fusionner les deux listes de notifications non lues
+      const allUnreadNotifications = [...appointmentNotifications, ...interventionNotifications];
+      return allUnreadNotifications;
+    
+  }
+async markAllNotificationsAsRead(userId: number) {
+const result = await this.prisma.notification.updateMany({
+        where: {
+          read: false,
+          OR: [
+            // Notifications liées aux rendez-vous du véhicule de l'utilisateur
+            {
+              appointment: {
+                vehicle: {
+                  userId: userId,
+                },
+              },
+            },
+            // Notifications liées aux interventions de l'utilisateur
+            {
+              appointment: {
+                interventions: {
+                  some: {
+                    appointment: {
+                      vehicle: {
+                        userId: userId,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+        data: {
+          read: true,
+        },
+      });
+
+      return {
+        message: `${result.count} notifications marquées comme lues.`,
+        updatedCount: result.count,
+      };}
+async countUnreadNotifications(userId: number): Promise<number> {
   
-}
+      // Compter les notifications non lues liées aux rendez-vous de l'utilisateur
+      const appointmentNotificationsCount = await this.prisma.notification.count({
+        where: {
+          read: false,
+          appointment: {
+            vehicle: {
+              userId: userId,
+            },
+          },
+        },
+      });
+
+      // Compter les notifications non lues liées aux interventions de l'utilisateur
+      const interventionNotificationsCount = await this.prisma.notification.count({
+        where: {
+          read: false,
+          appointment: {
+            interventions: {
+              some: {
+                appointment: {
+                  vehicle: {
+                    userId: userId,
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Retourner le total des notifications non lues
+      return appointmentNotificationsCount + interventionNotificationsCount;
+    } 
+  }
+
+

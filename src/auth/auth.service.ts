@@ -10,9 +10,8 @@ export class AuthService {
     private jwt: JwtService
   ) {}
 
-  // 1. Inscription d'un nouvel utilisateur
-  async signup(name: string, email: string, password: string, phone: string) {
-    const hash = await bcrypt.hash(password, 10); // Hash le mot de passe avec un "sel" de 10 rounds
+  async signup(name: string, email: string, password: string, phone: string , matf:string) {
+    const hash = await bcrypt.hash(password, 10);
     try {
       const user = await this.prisma.user.create({ // Crée l'utilisateur dans la base de données
         data: {
@@ -20,18 +19,16 @@ export class AuthService {
           email,
           phone,
           hash,
+          matf,
         },
       });
-        // Retourne un token JWT
-      return this.signToken(user.id, user.email, user.role, user.phone, user.name);
+      return this.signToken(user.id, user.email, user.role);
     } catch (err) {
-      // Si l'email est déjà utilisé
-      throw new ForbiddenException('Email déjà utilisé');
+      throw new ForbiddenException('Email ou telephone déjà utilisé');
     }
   }
-// 2. Connexion d'un utilisateur
+
   async signin(email: string, password: string) {
-     // Cherche l'utilisateur par email
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new ForbiddenException('Email ou mot de passe invalide');
 
@@ -40,12 +37,10 @@ export class AuthService {
     if (!pwMatches) throw new ForbiddenException('Email ou mot de passe invalide');
 
     // Retourne un token JWT
-    return this.signToken(user.id, user.email, user.role, user.phone, user.name);
+    return this.signToken(user.id, user.email, user.role);
   }
 
-   // 3. Génération du token JWT
-  async signToken(userId: number, email: string, role: string , phone: string , name: string) {
-     // Crée le payload du token (les données à encoder)
+  async signToken(userId: number, email: string, role: string) {
     const payload = { sub: userId, email, role };
     const token = await this.jwt.signAsync(payload, {
       secret: process.env.JWT_SECRET,
@@ -53,13 +48,7 @@ export class AuthService {
     });
 
     return {
-      access_token: token, //Retourne le token
-      role: role,
-      id: userId,
-      name: name,
-      email: email,
-      phone: phone,
-
+      access_token: token,
     };
   }
 }

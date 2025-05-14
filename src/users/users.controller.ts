@@ -74,5 +74,17 @@ export class UsersController {
   async getVehiclesByUserId(@Param('userId') userId: number): Promise<Vehicle[]> {
     return this.usersService.getVehiclesByUserId(userId);
   }
- 
+  @Patch('user/:userId/read-all')
+  async markAllNotificationsAsRead(@Param('userId') userId: number) {
+    return await this.usersService.markAllNotificationsAsRead(Number(userId));
+  }
+  @Get('user/:userId/unread')
+  async getUnreadUserNotifications(@Param('userId') userId: number) {
+    return await this.usersService.getUnreadUserNotifications(Number(userId));
+  }
+   @Get('user/:userId/unread-count')
+  async countUnreadNotifications(@Param('userId') userId: number) {
+    const count = await this.usersService.countUnreadNotifications(Number(userId));
+    return { unreadCount: count };
+  }
 }

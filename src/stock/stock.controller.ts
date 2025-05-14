@@ -167,4 +167,8 @@ getPiecesByCategory(@Param('categoryId') categoryId: string) {
       throw new BadRequestException(error.message);
     }
   }
+  @Get('suppliers')
+  async getSuppliers() {
+    return await this.stockService.getSuppliers();
+  }
 }

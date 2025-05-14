@@ -31,4 +31,15 @@ export class ReportsController { constructor(private readonly reportsService: Re
   async getProviderAverageRates() {
     return this.reportsService.getProviderAverageRate();
   }
+  @Get('clients/count')
+  async getClientCount() {
+    const count = await this.reportsService.countClients();
+    return { totalClients: count };
+  }
+
+  @Get('vehicles/visible/count')
+  async getVisibleVehicleCount() {
+    const count = await this.reportsService.countVisibleVehicles();
+    return { totalVisibleVehicles: count };
+  }
 }
