@@ -23,7 +23,10 @@ export class AppointmentsController {
     async getAppointmentsOfOneCar(@Param('vehicleId') vehicleId: string) {
         return this.service.getAppointmentsOfOneCar(parseInt(vehicleId));
     }
-
+ @Get('user/:userId')
+  async getAppointmentsByUserId(@Param('userId') userId: number) {
+    return this.service.getAppointmentsByUserId(+userId);
+  }
     //   all appointments for a specific date
     @Get('date-appointments/:date')
     async getAppointmentsByDate(@Param('date') date: string) {

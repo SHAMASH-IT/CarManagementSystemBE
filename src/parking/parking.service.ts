@@ -212,6 +212,7 @@ export class ParkingService {
       }
 
 
+
       async getParkingsByUserRole(userId: number) {
         // Récupérer l'utilisateur
         const user = await this.prisma.user.findUnique({
@@ -253,4 +254,5 @@ export class ParkingService {
     
       }
     
+
 }

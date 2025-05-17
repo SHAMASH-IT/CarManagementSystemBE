@@ -103,4 +103,19 @@ export class ReportsController { constructor(private readonly reportsService: Re
   async getYearInvoicesByService(@Param('serviceId', ParseIntPipe) serviceId: number): Promise<number> {
     return this.reportsService.getYearInvoicesByService(serviceId);
   }
+  @Get('predict-revenue')
+  async predictFutureRevenue() {
+    try {
+      const predictions = await this.reportsService.predictFutureRevenue();
+      return {
+        message: 'Prédiction des chiffres d\'affaires pour les 6 prochains mois',
+        predictions,
+      };
+    } catch (error) {
+      return {
+        message: 'Erreur lors de la prédiction des chiffres d\'affaires',
+        error: error.message,
+      };
+    }
+  }
 }

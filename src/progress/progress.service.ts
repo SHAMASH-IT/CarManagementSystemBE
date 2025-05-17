@@ -649,5 +649,53 @@ async getClientAndProviderFromIntervention(interventionId: number) {
     });
   }
 
-  
+  async getInterventions(userId: number) {
+  // Récupérer l'utilisateur avec son rôle
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, id: true },
+  });
+
+  if (!user) {
+    throw new NotFoundException('Utilisateur non trouvé');
+  }
+
+  // Si l'utilisateur est admin, retourner toutes les interventions
+  if (user.role === 'ADMIN') {
+    return await this.prisma.intervention.findMany({
+      include: {
+        appointment: {
+          include: { service: true },
+        },
+      },
+    });
+  }
+
+  // Si l'utilisateur est provider, retourner les interventions de ses services
+  if (user.role === 'PROVIDER') {
+    // Récupérer les services du provider
+    const services = await this.prisma.service.findMany({
+      where: { providerId: userId },
+      select: { id: true },
+    });
+
+    const serviceIds = services.map((service) => service.id);
+
+    return await this.prisma.intervention.findMany({
+      where: {
+        appointment: {
+          serviceId: { in: serviceIds },
+        },
+      },
+      include: {
+        appointment: {
+          include: { service: true },
+        },
+      },
+    });
+  }
+
+ 
+}
+
 }
