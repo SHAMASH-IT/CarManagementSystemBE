@@ -333,6 +333,12 @@ await this.prisma.notification.create({
                         model: true,
                         year: true,
                         registration: true,
+                        user: {
+                            select: {
+                                name: true,
+                                phone: true,
+                            },
+                        },
                         positions: {
                             select: {
                                 location: {
@@ -520,6 +526,79 @@ await this.prisma.notification.create({
             },
         });
     }
+
+    async getAppointmentsByUserId(userId: number) {
+        return this.prisma.appointment.findMany({
+            where: {
+                vehicle: {
+                    userId: userId,
+                },
+            },
+            include: {
+                vehicle: {
+                    select: {
+                        brand: true,
+                        model: true,
+                        year: true,
+                        registration: true,
+                        positions: {
+                            select: {
+                                location: {
+                                    select: {
+                                        name: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                service: true,
+            },
+        });
+    }
+
+    async getAppointmentsByUserRole(userId: number) {
+        // Récupérer l'utilisateur
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, role: true },
+        });
+    
+        if (!user) {
+          throw new NotFoundException(`Utilisateur avec ID ${userId} introuvable.`);
+        }
+    
+        // Si l'utilisateur est ADMIN, retourner tous les rendez-vous
+        if (user.role === 'ADMIN') {
+          return this.prisma.appointment.findMany({
+            include: {
+              vehicle: true,
+              service: true,
+            },
+          });
+        }
+    
+        // Si l'utilisateur est PROVIDER, récupérer ses services et les rendez-vous associés
+        if (user.role === 'PROVIDER') {
+          const services = await this.prisma.service.findMany({
+            where: { providerId: userId },
+            select: { id: true },
+          });
+    
+          const serviceIds = services.map((service) => service.id);
+    
+          return this.prisma.appointment.findMany({
+            where: { serviceId: { in: serviceIds } },
+            include: {
+              vehicle: true,
+              service: true,
+            },
+          });
+        }
+    
+        
+        
+      }
             
 }    
 

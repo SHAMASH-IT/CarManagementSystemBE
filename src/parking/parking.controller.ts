@@ -76,5 +76,10 @@ export class ParkingController {
     }
     
 
+    @Get('user/:userId')
+  async getParkingsByUserRole(@Param('userId') userId: number) {
+    return this.parkingservice.getParkingsByUserRole(+userId);
+  }
+
 
 }

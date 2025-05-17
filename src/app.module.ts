@@ -11,6 +11,7 @@ import { StockModule } from './stock/stock.module';
 import { ReportsModule } from './reports/reports.module';
 import { ConfigModule } from '@nestjs/config';
 import { ProgressModule } from './progress/progress.module';
+import { ServiceModule } from './service/service.module';
 
 
 
@@ -21,7 +22,7 @@ import { ProgressModule } from './progress/progress.module';
 @Module({
   imports: [AppointmentsModule, UsersModule, ParkingModule,ProgressModule,
      AuthModule, HistoryModule, PrismaModule, StockModule, 
-     ReportsModule, ConfigModule.forRoot({ isGlobal: true }), ],
+     ReportsModule, ConfigModule.forRoot({ isGlobal: true }), ServiceModule, ],
   controllers: [AppController],
   providers: [AppService],
 })
