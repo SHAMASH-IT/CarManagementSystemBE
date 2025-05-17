@@ -81,7 +81,7 @@ export class StockController {
 
   @Post('selling')
   async placeOrderSelling(
-    @Body() dto: { pieces: { pieceId: number, quantity: number }[], userId: number }
+    @Body() dto: { pieces: { pieceId: number, quantity: number }[] }
   ) {
     try {
       return await this.stockService.placeOrderSelling(dto);

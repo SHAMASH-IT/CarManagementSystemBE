@@ -134,4 +134,8 @@ async getCompletedInterventions() {
   async getClientAndProviderintervention(@Param('id') id: number) {
     return await this.progressService.getClientAndProviderFromIntervention(Number(id));
   }
+   @Get(':userId')
+  async getInterventions(@Param('userId') userId: number) {
+    return await this.progressService.getInterventions(userId);
+  }
 }

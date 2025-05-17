@@ -74,7 +74,10 @@ export class ParkingController {
     async deleteParking(@Param('id', ParseIntPipe) id: number) {
       return this.parkingservice.deleteParking(id);
     }
-    
+     @Get('user/:userId')
+  async getParkingsByUserRole(@Param('userId') userId: number) {
+    return this.parkingservice.getParkingsByUserRole(+userId);
+  }
 
 
 }

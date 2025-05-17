@@ -5,6 +5,7 @@ import * as Sentiment from 'sentiment';
 import nlp from 'compromise';
 import axios from 'axios';
 import { startOfDay, endOfDay, subDays, subYears } from 'date-fns';
+import * as tf from '@tensorflow/tfjs';
 interface OpenAIResponse {
   choices: {
     message: any; text: string 
@@ -361,7 +362,44 @@ async getYearInvoicesByService(serviceId: number): Promise<number> {
   });
   return result._sum.total || 0;
 }
- }
+
+  async predictFutureRevenue(): Promise<{ message: string; predictions: number[] }> {
+  // 1. Récupérer le chiffre d'affaires total du mois en cours
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+
+  const invoices = await this.prisma.invoice.findMany({
+    where: {
+      createdAt: {
+        gte: new Date(currentYear, currentMonth - 1, 1),  // Début du mois
+        lt: new Date(currentYear, currentMonth, 1),       // Début du mois suivant
+      },
+    },
+  });
+
+  // 2. Vérifier si des données sont disponibles
+  if (invoices.length === 0) {
+    return { message: "Aucune donnée disponible pour ce mois", predictions: [] };
+  }
+
+  // 3. Calcul du chiffre d'affaires total du mois en cours
+  const totalCurrentMonth = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+
+  // 4. Générer les prédictions pour les 6 prochains mois avec une croissance de 5 % par mois
+  const predictions = Array(6).fill(0).map((_, i) => 
+    totalCurrentMonth * Math.pow(1.05, i + 1)
+  );
+
+  return {
+    message: `Prédiction basée sur le chiffre d'affaires du mois actuel (${currentMonth}/${currentYear}) : ${totalCurrentMonth}`,
+    predictions,
+  };
+}
+
+
+}
+
+ 
 
 
 

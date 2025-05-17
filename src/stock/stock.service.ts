@@ -205,7 +205,7 @@ async updateCategory(id: number, dto: CreateCategoryDto) {
         return updatedOrder;
       }*/
     
-async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[], userId: number }) {
+async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[]}) {
   const orderDate = new Date();
 
   // Vérifier la disponibilité de chaque pièce
@@ -230,7 +230,7 @@ async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[], 
         date: orderDate,
         status: Status.RESERVED,
         ordertype: StatusOrder.SELLING,
-        userId: dto.userId,
+        
       },
     }),
   ]);
