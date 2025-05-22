@@ -508,14 +508,18 @@ async getOrderSelling() {
         },
       },
       include: {
-        orderPieces: true,  // Inclure les pièces associées à la commande
+        orderPieces: {
+          include: {
+            piece: true  // Inclure les données de chaque pièce
+          }
+        },
         user: true,  // Inclure l'utilisateur
       },
     });
   }
 
   // Fonction pour récupérer toutes les commandes d'achat
-  async getOrderBuying() {
+async getOrderBuying() {
     return this.prisma.order.findMany({
       where: {
         ordertype: StatusOrder.BUYING,  // Filtrer par type de commande (Achat)
@@ -524,12 +528,16 @@ async getOrderSelling() {
         },
       },
       include: {
-        orderPieces: true,  // Inclure les pièces associées à la commande
+        orderPieces: {
+          include: {
+            piece: true  // Inclure les données de chaque pièce
+          }
+        },
         user: true,  // Inclure l'utilisateur
       },
     });
   }
- async getOrderBuyingBySupplier(userId: number) {
+async getOrderBuyingBySupplier(userId: number) {
     return this.prisma.order.findMany({
       where: {
         userId: userId,
@@ -539,7 +547,11 @@ async getOrderSelling() {
         },
       },
       include: {
-        orderPieces: true,  // Inclure les pièces associées à la commande
+        orderPieces: {
+          include: {
+            piece: true  // Inclure les données de chaque pièce
+          }
+        },
         user: true,  // Inclure l'utilisateur
       },
     });

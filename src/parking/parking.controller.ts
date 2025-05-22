@@ -79,7 +79,5 @@ export class ParkingController {
     return this.parkingservice.getParkingsByUserRole(+userId);
   }
 
- 
-
 
 }

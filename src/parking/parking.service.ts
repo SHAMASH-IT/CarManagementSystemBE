@@ -210,49 +210,44 @@ export class ParkingService {
       
         return { message: 'Parking et ses locations supprimés avec succès.' };
       }
+     async getParkingsByUserRole(userId: number) {
+    // Récupérer l'utilisateur
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
 
+    if (!user) {
+      throw new NotFoundException(`Utilisateur avec ID ${userId} introuvable.`);
+    }
 
+    // Si l'utilisateur est ADMIN, retourner tous les parkings
+    if (user.role === 'ADMIN') {
+      return this.prisma.parking.findMany({
+        include: {
+          service: true,
+          locations: true,
+        },
+      });
+    }
 
-      async getParkingsByUserRole(userId: number) {
-        // Récupérer l'utilisateur
-        const user = await this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, role: true },
-        });
-    
-        if (!user) {
-          throw new NotFoundException(`Utilisateur avec ID ${userId} introuvable.`);
-        }
-    
-        // Si l'utilisateur est ADMIN, retourner tous les parkings
-        if (user.role === 'ADMIN') {
-          return this.prisma.parking.findMany({
-            include: {
-              service: true,
-              locations: true,
-            },
-          });
-        }
-    
-        // Si l'utilisateur est PROVIDER, récupérer ses services et les parkings associés
-        if (user.role === 'PROVIDER') {
-          const services = await this.prisma.service.findMany({
-            where: { providerId: userId },
-            select: { id: true },
-          });
-    
-          const serviceIds = services.map((service) => service.id);
-    
-          return this.prisma.parking.findMany({
-            where: { serviceId: { in: serviceIds } },
-            include: {
-              service: true,
-              locations: true,
-            },
-          });
-        }
-    
-      }
-    
+    // Si l'utilisateur est PROVIDER, récupérer ses services et les parkings associés
+    if (user.role === 'PROVIDER') {
+      const services = await this.prisma.service.findMany({
+        where: { providerId: userId },
+        select: { id: true },
+      });
 
+      const serviceIds = services.map((service) => service.id);
+
+      return this.prisma.parking.findMany({
+        where: { serviceId: { in: serviceIds } },
+        include: {
+          service: true,
+          locations: true,
+        },
+      });
+    }
+
+  }
 }

@@ -66,15 +66,9 @@ async getPendingAppointments() {
 async getReservedAppointments() {
   return this.service.getReservedAppointments();
 }
-@Get('user/:userId')
-  async getAppointmentsByUserId(@Param('userId') userId: number) {
-    return this.service.getAppointmentsByUserId(+userId);
-  }
 
-  
-@Get('user/:userId')
-async getAppointmentsByUserRole(@Param('userId') userId: number) {
-  return this.service.getAppointmentsByUserRole(+userId);
-}
-    
+     @Get('user/:userId')
+  async getAppointmentsByUserRole(@Param('userId') userId: number) {
+    return this.service.getAppointmentsByUserRole(+userId);
+  }
 }

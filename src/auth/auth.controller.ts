@@ -5,13 +5,11 @@ import { AuthService } from './auth.service';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  // Route pour l'inscription
   @Post('signup')
   signup(@Body() body: { name: string; email: string; password: string; phone: string  ; matf:string}) {
     return this.authService.signup(body.name, body.email, body.password, body.phone ,body.matf);
   }
 
-  // Route pour la connexion
   @Post('signin')
   signin(@Body() body: { email: string; password: string }) {
     return this.authService.signin(body.email, body.password);

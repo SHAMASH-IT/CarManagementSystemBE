@@ -28,12 +28,9 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/client": "^6.5.0",
-
-    "@types/bcryptjs": "^3.0.0",
-
     "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.9.0",
-
+    "back": "file:",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
@@ -62,7 +59,6 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
-    "@types/sentiment": "^5.0.4",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

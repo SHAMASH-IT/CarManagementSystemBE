@@ -333,13 +333,10 @@ await this.prisma.notification.create({
                         model: true,
                         year: true,
                         registration: true,
-
-                        user: {
-                            select: {
-                                name: true,
-                                phone: true,
-
-                 
+                        user:{
+                            select:{
+                                name:true,
+                                phone:true,
                             },
                         },
                         positions: {
@@ -558,7 +555,6 @@ async getAppointmentsByUserId(userId: number) {
             },
         });
     }
-
     async getAppointmentsByUserRole(userId: number) {
     // Récupérer l'utilisateur
     const user = await this.prisma.user.findUnique({
