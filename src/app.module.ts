@@ -13,12 +13,6 @@ import { ConfigModule } from '@nestjs/config';
 import { ProgressModule } from './progress/progress.module';
 import { ServiceModule } from './service/service.module';
 
-
-
-
-
-
-
 @Module({
   imports: [AppointmentsModule, UsersModule, ParkingModule,ProgressModule,
      AuthModule, HistoryModule, PrismaModule, StockModule, 
