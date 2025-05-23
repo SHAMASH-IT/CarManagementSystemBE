@@ -13,4 +13,8 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsDate()
   date?: Date;
+
+  @IsOptional()
+  @IsInt()
+  discount?: number;
 }

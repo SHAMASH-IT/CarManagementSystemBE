@@ -1,4 +1,4 @@
-import { IsInt, IsPositive } from 'class-validator';
+import { IsInt, IsOptional, IsPositive } from 'class-validator';
 
 export class CreateOrderDto {
   @IsInt()
@@ -10,4 +10,9 @@ export class CreateOrderDto {
   @IsInt()
   @IsPositive()
   quantity: number;
+
+   @IsOptional()
+    @IsInt()
+    discount?: number;
+
 }

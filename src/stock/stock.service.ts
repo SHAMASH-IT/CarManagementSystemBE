@@ -362,11 +362,14 @@ async cancelOrderSelling(id: number) {
     const pieceTotal = orderPiece.quantity * orderPiece.piece.price;
     return acc + pieceTotal;
   }, 0);
-
+let finalTotal = total;
+if (order.discount && order.discount !== 0) {
+  finalTotal = total - (total * order.discount) / 100;
+}
   // Créer la facture
   const invoice = await this.prisma.invoice.create({
     data: {
-      total: total,
+      total: finalTotal,
       description: `Facture pour la commande n°${orderId}`,
       orderId: orderId,
     },
@@ -569,4 +572,73 @@ async getOrderSelling() {
 
   return invoice;
 }
+async getOrdersWithPieces(): Promise<any[]> {
+  const orders = await this.prisma.order.findMany({
+    where: {
+      ordertype: "SELLING", // Filtrer uniquement les commandes de type "SELLING"
+    },
+    include: {
+      orderPieces: {
+        include: {
+          piece: true,
+        },
+      },
+    },
+  });
+
+  return orders.map((order) => ({
+    orderId: order.id,
+    date: order.date,
+    status: order.status,
+    ordertype: order.ordertype,
+    pieces: order.orderPieces.map((op) => ({
+      pieceId: op.piece.id,
+      pieceName: op.piece.name,
+      quantity: op.quantity,
+    })),
+  }));
+}
+
+async getOrderWithPieces(orderId: number): Promise<any> {
+  const order = await this.prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      user: true,
+      orderPieces: {
+        include: {
+          piece: true,
+        },
+      },
+      Invoice: true,
+    },
+  });
+
+  if (!order) {
+    throw new NotFoundException(`Commande avec l'ID ${orderId} non trouvée`);
+  }
+
+  return {
+    orderId: order.id,
+    date: order.date,
+    status: order.status,
+    discount: order.discount,
+    user: {
+      userId: order.user?.id,
+      userName: order.user?.name,
+      userEmail: order.user?.email,
+    },
+    invoices: order.Invoice.map((invoice) => ({
+      invoiceId: invoice.id,
+      total: invoice.total,
+      description: invoice.description,
+      createdAt: invoice.createdAt,
+    })),
+    pieces: order.orderPieces.map((op) => ({
+      pieceId: op.piece.id,
+      pieceName: op.piece.name,
+      quantity: op.quantity,
+    })),
+  };
+}
+
 }

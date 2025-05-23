@@ -134,8 +134,19 @@ async getCompletedInterventions() {
   async getClientAndProviderintervention(@Param('id') id: number) {
     return await this.progressService.getClientAndProviderFromIntervention(Number(id));
   }
-   @Get(':userId')
+   @Get('intervention/:userId')
   async getInterventions(@Param('userId') userId: number) {
     return await this.progressService.getInterventions(userId);
   }
+   @Get('completed/:userId')
+  async getCompleted(
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return await this.progressService.getCompleted(userId);
+  }
+  @Get('completed-with-invoice/:userId')
+getCompletedWithInvoiceByUser(@Param('userId', ParseIntPipe) userId: number) {
+  return this.progressService.getCompletedInterventionsWithInvoiceByUser(userId);
+}
+
 }

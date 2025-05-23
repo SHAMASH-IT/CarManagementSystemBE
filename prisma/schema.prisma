@@ -1,238 +1,239 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+  // This is your Prisma schema file,
+  // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+  // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+  // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-generator client {
-  provider = "prisma-client-js"
-}
+  generator client {
+    provider = "prisma-client-js"
+  }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-enum StatusOrder {
-BUYING
-SELLING
-}
-enum StatutV { 
-HIDDEN
-VISIBLE
-}
-enum Status {
-  RESERVED
-  PENDING
-  COMPLETED
-  CANCELLED
-  CONFIRMED
-  IN_PROGRESS
-}
-enum StatusP {
-  RESERVED
-  OCCUPIED
-  EMPTY
-}
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
+  enum StatusOrder {
+  BUYING
+  SELLING
+  }
+  enum StatutV { 
+  HIDDEN
+  VISIBLE
+  }
+  enum Status {
+    RESERVED
+    PENDING
+    COMPLETED
+    CANCELLED
+    CONFIRMED
+    IN_PROGRESS
+  }
+  enum StatusP {
+    RESERVED
+    OCCUPIED
+    EMPTY
+  }
 
-enum Role {
-  ADMIN
-  CLIENT
-  PROVIDER
-  SUPPLIER
-}
+  enum Role {
+    ADMIN
+    CLIENT
+    PROVIDER
+    SUPPLIER
+  }
 
-model Service {
-  id          Int           @id @default(autoincrement())
-  name        String         @unique
-  description String
-   providerId  Int
-  provider    User          @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  parking     Parking[]
-  appointments Appointment[]
-}
+  model Service {
+    id          Int           @id @default(autoincrement())
+    name        String         @unique
+    description String
+    providerId  Int
+    provider    User          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+    parking     Parking[]
+    appointments Appointment[]
+  }
 
-model User {
-  id        Int          @id @default(autoincrement())
-  name      String
-  email     String       @unique
-  hash      String
-  phone     String        @unique
-  role      Role         @default(CLIENT)
-  matf       String?        @unique
-  vehicles  Vehicle[]
-  orders    Order[]
+  model User {
+    id        Int          @id @default(autoincrement())
+    name      String
+    email     String       @unique
+    hash      String
+    phone     String        @unique
+    role      Role         @default(CLIENT)
+    matf       String?        @unique
+    vehicles  Vehicle[]
+    orders    Order[]
+    
+
+    services Service[]
+  }
+
+  model Vehicle {
+    id           Int          @id @default(autoincrement())
+    brand        String
+    model        String
+    year         Int
+    registration String
+    statut      StatutV     @default(VISIBLE)
+    userId       Int
+    user         User         @relation(fields: [userId], references: [id],onDelete: Cascade)
+    positions    Position[]
+    appointments Appointment[]
+  }
+
+  model Parking {
+    id          Int          @id @default(autoincrement())
+    name        String
+    places      Int
+    serviceId   Int
+    service     Service      @relation(fields: [serviceId], references: [id],onDelete: Cascade)
+    locations   Location[]
+  }
+
+  model Location {
+    id         Int          @id @default(autoincrement())
+    name       String
+    status     StatusP      @default(EMPTY)
+    parkingId  Int
+    parking    Parking      @relation(fields: [parkingId], references: [id],onDelete: Cascade)
+    positions  Position[]
+  }
+
+  model Position {
+    id         Int          @id @default(autoincrement())
+    locationId Int
+    location   Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+    vehicleId  Int
+    vehicle    Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+    appointmentId Int
+    appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  }
+  model Notification {
+    id           Int         @id @default(autoincrement())
+    message      String
+    type         String      // Type de notification (ex: "Reminder", "Status Update")
+    createdAt    DateTime    @default(now())
+    read         Boolean     @default(false)  // Statut de lecture
+    appointmentId Int?
+    appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  interventionId Int?
+    intervention  Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   
+  }
+  model Appointment {
+    id          Int            @id @default(autoincrement())
+    date        DateTime
+    time        DateTime
+    status      Status         @default(PENDING)
+    serviceId   Int
+    service     Service        @relation(fields: [serviceId], references: [id],onDelete: Cascade)
+    vehicleId   Int
+    vehicle     Vehicle        @relation(fields: [vehicleId], references: [id],onDelete: Cascade)
+    interventions Intervention[]
+    positions    Position[]
+    notifications Notification[]
+  }
 
-  services Service[]
-}
+  /*
+  model Parametrage {
+    id          Int       @id @default(autoincrement())
+    userId      Int
+    user        User      @relation(fields: [userId], references: [id],onDelete: Cascade)
+    time        DateTime
+  }
+  */
 
-model Vehicle {
-  id           Int          @id @default(autoincrement())
-  brand        String
-  model        String
-  year         Int
-  registration String
-  statut      StatutV     @default(VISIBLE)
-  userId       Int
-  user         User         @relation(fields: [userId], references: [id],onDelete: Cascade)
-  positions    Position[]
-  appointments Appointment[]
-}
+  model Category {
+    id     Int     @id @default(autoincrement())
+    name   String
+    pieces Piece[]
+  }
 
-model Parking {
-  id          Int          @id @default(autoincrement())
-  name        String
-  places      Int
-  serviceId   Int
-  service     Service      @relation(fields: [serviceId], references: [id],onDelete: Cascade)
-  locations   Location[]
-}
+  model Piece {
+    id          Int            @id @default(autoincrement())
+    name        String 
+    stock       Int
+    threshold   Int
+    price       Float
+    initialPrice Float?
+    marque        String?
+    categoryId  Int
+    category    Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+    orders      Order[]
+    interventions Intervention[] @relation("PieceInterventions") // Association avec Intervention
+    
+    // Nouvelle association avec Intervention à travers une table d'association (optionnelle)
+    interventionPieces InterventionPiece[]  
 
-model Location {
-  id         Int          @id @default(autoincrement())
-  name       String
-  status     StatusP      @default(EMPTY)
-  parkingId  Int
-  parking    Parking      @relation(fields: [parkingId], references: [id],onDelete: Cascade)
-  positions  Position[]
-}
+    
 
-model Position {
-  id         Int          @id @default(autoincrement())
-  locationId Int
-  location   Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  vehicleId  Int
-  vehicle    Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  appointmentId Int
-  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-}
-model Notification {
-  id           Int         @id @default(autoincrement())
-  message      String
-  type         String      // Type de notification (ex: "Reminder", "Status Update")
-  createdAt    DateTime    @default(now())
-  read         Boolean     @default(false)  // Statut de lecture
-  appointmentId Int?
-  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-interventionId Int?
-  intervention  Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
- 
-}
-model Appointment {
-  id          Int            @id @default(autoincrement())
-  date        DateTime
-  time        DateTime
-  status      Status         @default(PENDING)
-  serviceId   Int
-  service     Service        @relation(fields: [serviceId], references: [id],onDelete: Cascade)
-  vehicleId   Int
-  vehicle     Vehicle        @relation(fields: [vehicleId], references: [id],onDelete: Cascade)
-  interventions Intervention[]
-  positions    Position[]
+    OrderPiece OrderPiece[]
+  }
+
+  model Intervention {
+    id                  Int                   @id @default(autoincrement())
+    description         String
+    startDate           DateTime
+    endDate             DateTime
+    price               Float                // Prix total de l'intervention
+    status              Status
+    appointmentId       Int?
+    appointment         Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+    
+
+    rate                Int?                 // Note donnée par le client (optionnelle)
+    commentaire         String?              // Commentaire laissé par le client (optionnel)
   notifications Notification[]
-}
-
-/*
-model Parametrage {
-  id          Int       @id @default(autoincrement())
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id],onDelete: Cascade)
-  time        DateTime
-}
-*/
-
-model Category {
-  id     Int     @id @default(autoincrement())
-  name   String
-  pieces Piece[]
-}
-
-model Piece {
-  id          Int            @id @default(autoincrement())
-  name        String 
-  stock       Int
-  threshold   Int
-  price       Float
-  initialPrice Float?
-  marque        String?
-  categoryId  Int
-  category    Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  orders      Order[]
-  interventions Intervention[] @relation("PieceInterventions") // Association avec Intervention
-  
-  // Nouvelle association avec Intervention à travers une table d'association (optionnelle)
-  interventionPieces InterventionPiece[]  
-
-  
-
-  OrderPiece OrderPiece[]
-}
-
-model Intervention {
-  id                  Int                   @id @default(autoincrement())
-  description         String
-  startDate           DateTime
-  endDate             DateTime
-  price               Float                // Prix total de l'intervention
-  status              Status
-  appointmentId       Int?
-  appointment         Appointment?         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  
-
-  rate                Int?                 // Note donnée par le client (optionnelle)
-  commentaire         String?              // Commentaire laissé par le client (optionnel)
-notifications Notification[]
-  Invoice             Invoice[]
-  interventionPieces  InterventionPiece[]
-  Piece               Piece[]              @relation("PieceInterventions")
-}
+    Invoice             Invoice[]
+    interventionPieces  InterventionPiece[]
+    Piece               Piece[]              @relation("PieceInterventions")
+  }
 
 
-// Table d'association pour relier Piece et Intervention (optionnelle)
-model InterventionPiece {
-  id              Int         @id @default(autoincrement())
-  pieceId         Int
-  interventionId  Int
-  quantity        Int         // Quantité de pièces utilisées dans l'intervention
-  totalPrice      Float       // Prix total pour cette quantité de pièces
+  // Table d'association pour relier Piece et Intervention (optionnelle)
+  model InterventionPiece {
+    id              Int         @id @default(autoincrement())
+    pieceId         Int
+    interventionId  Int
+    quantity        Int         // Quantité de pièces utilisées dans l'intervention
+    totalPrice      Float       // Prix total pour cette quantité de pièces
 
-  piece           Piece       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-  intervention    Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
-}
+    piece           Piece       @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+    intervention    Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  }
 
 
-model Order {
-  id        Int            @id @default(autoincrement())
-  date      DateTime
-  status    Status
-  userId    Int ?
-  user      User ?          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orderPieces OrderPiece[] // Liste des pièces associées à cette commande
-  ordertype  StatusOrder
-  Piece Piece[]
+  model Order {
+    id        Int            @id @default(autoincrement())
+    date      DateTime
+    status    Status
+    discount  Int ?
+    userId    Int ?
+    user      User ?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    orderPieces OrderPiece[] // Liste des pièces associées à cette commande
+    ordertype  StatusOrder
+    Piece Piece[]
 
-  Invoice Invoice[]
-}
+    Invoice Invoice[]
+  }
 
-model OrderPiece {
-  id       Int     @id @default(autoincrement())
-  quantity Int     // Quantité de cette pièce dans la commande
+    model OrderPiece {
+      id       Int     @id @default(autoincrement())
+      quantity Int     // Quantité de cette pièce dans la commande
 
-  orderId  Int
-  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+      orderId  Int
+      order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  pieceId  Int
-  piece    Piece   @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-}
+      pieceId  Int
+      piece    Piece   @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+    }
 
-model Invoice {
-  id              Int         @id @default(autoincrement())
-  total           Float       // Montant total de la facture
-  description     String      // Description de la facture
-  createdAt       DateTime    @default(now())  // Date de création
-  intervention    Intervention? @relation(fields: [interventionId], references: [id])
-  interventionId  Int?         // Référence à l'intervention
-  order    Order?               @relation(fields: [orderId], references: [id])
-  orderId  Int?                 // Référence à l'intervention
-}
+  model Invoice {
+    id              Int         @id @default(autoincrement())
+    total           Float       // Montant total de la facture
+    description     String      // Description de la facture
+    createdAt       DateTime    @default(now())  // Date de création
+    intervention    Intervention? @relation(fields: [interventionId], references: [id])
+    interventionId  Int?         // Référence à l'intervention
+    order    Order?               @relation(fields: [orderId], references: [id])
+    orderId  Int?                 // Référence à l'intervention
+  }
 

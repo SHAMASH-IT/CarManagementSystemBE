@@ -175,4 +175,13 @@ getPiecesByCategory(@Param('categoryId') categoryId: string) {
 async getInvoiceByOrder(@Param('orderId') orderId: number) {
   return this.stockService.getInvoiceByOrderId(+orderId);
 }
+@Get('with-pieces')
+  async getOrdersWithPieces() {
+    return await this.stockService.getOrdersWithPieces();
+  }
+
+@Get(':id')
+  async getOrderWithPieces(@Param('id') id: number) {
+    return await this.stockService.getOrderWithPieces(id);
+  }
 }

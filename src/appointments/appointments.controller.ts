@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch,Delete,Param, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch,Delete,Param, Body, BadRequestException, ParseIntPipe } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { Createappointment, updateAppointment } from './dto';
 
@@ -70,5 +70,12 @@ async getReservedAppointments() {
      @Get('user/:userId')
   async getAppointmentsByUserRole(@Param('userId') userId: number) {
     return this.service.getAppointmentsByUserRole(+userId);
+  }
+   @Get('today/:userId')
+  async getTodayAppointments(@Param('userId', ParseIntPipe) userId: number) {
+   
+      const appointments = await this.service.getTodayAppointments(userId);
+      return { appointments };
+    
   }
 }

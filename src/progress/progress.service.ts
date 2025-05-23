@@ -19,86 +19,101 @@ export class ProgressService {
 
   // 2. Commencer une intervention à partir d’un rendez-vous
   async startIntervention(appointmentId: string, dto: StartInterventionDto) {
-    const appointment = await this.prisma.appointment.findUnique({
-      where: { id: Number.parseInt(appointmentId) },
-    });
-  
-    if (!appointment) {
-      throw new NotFoundException('Appointment not found');
-    }
-  
-    if (appointment.status !== Status.RESERVED) {
-      throw new BadRequestException('This appointment is not in a RESERVED state');
-    }
-  
-    // 🔁 Vérifier s’il existe déjà une intervention liée à ce rendez-vous
-    const existingIntervention = await this.prisma.intervention.findFirst({
-      where: { appointmentId: appointment.id },
-    });
-  
-    if (existingIntervention) {
-      throw new BadRequestException('An intervention is already associated with this appointment');
-    }
-  
-    // 🔁 Vérifier que la quantité de chaque pièce est disponible en stock
-    if (dto.pieces && dto.pieces.length > 0) {
-      for (const piece of dto.pieces) {
-        const dbPiece = await this.prisma.piece.findUnique({
-          where: { id: piece.id },
-        });
-  
-        if (!dbPiece) {
-          throw new NotFoundException(`Piece with id ${piece.id} not found`);
-        }
-  
-        if (piece.quantity > dbPiece.stock) {
-          throw new BadRequestException(
-            `Not enough stock for piece "${dbPiece.name}". Requested: ${piece.quantity}, Available: ${dbPiece.stock}`,
-          );
-        }
+  const appointment = await this.prisma.appointment.findUnique({
+    where: { id: Number.parseInt(appointmentId) },
+  });
+
+  if (!appointment) {
+    throw new NotFoundException('Appointment not found');
+  }
+
+  if (appointment.status !== Status.RESERVED) {
+    throw new BadRequestException('This appointment is not in a RESERVED state');
+  }
+
+  // Vérifier s’il existe déjà une intervention liée à ce rendez-vous
+  const existingIntervention = await this.prisma.intervention.findFirst({
+    where: { appointmentId: appointment.id },
+  });
+
+  if (existingIntervention) {
+    throw new BadRequestException('An intervention is already associated with this appointment');
+  }
+
+  // Vérifier que la quantité de chaque pièce est disponible en stock
+  if (dto.pieces && dto.pieces.length > 0) {
+    for (const piece of dto.pieces) {
+      const dbPiece = await this.prisma.piece.findUnique({
+        where: { id: piece.id },
+      });
+
+      if (!dbPiece) {
+        throw new NotFoundException(`Piece with id ${piece.id} not found`);
+      }
+
+      if (piece.quantity > dbPiece.stock) {
+        throw new BadRequestException(
+          `Not enough stock for piece "${dbPiece.name}". Requested: ${piece.quantity}, Available: ${dbPiece.stock}`,
+        );
       }
     }
-  
-    // 🛠️ Créer l’intervention
-    const intervention = await this.prisma.intervention.create({
-      data: {
-        description: dto.description,
-        startDate: new Date(),
-        endDate: new Date(dto.endDate),
-        price: dto.price,
-        status: Status.IN_PROGRESS,
-        appointmentId: appointment.id,
-      },
+  }
+
+  // Créer l’intervention
+  const intervention = await this.prisma.intervention.create({
+    data: {
+      description: dto.description,
+      startDate: new Date(),
+      endDate: new Date(dto.endDate),
+      price: dto.price,
+      status: Status.IN_PROGRESS,
+      appointmentId: appointment.id,
+    },
+  });
+
+  // Associer les pièces à l’intervention
+  if (dto.pieces && dto.pieces.length > 0) {
+    const interventionPiecesData = dto.pieces.map(piece => ({
+      pieceId: piece.id,
+      quantity: piece.quantity,
+      totalPrice: piece.price * piece.quantity,
+      interventionId: intervention.id,
+    }));
+
+    await this.prisma.interventionPiece.createMany({
+      data: interventionPiecesData,
     });
-  
-    // 🔗 Associer les pièces à l’intervention
-    if (dto.pieces && dto.pieces.length > 0) {
-      const interventionPiecesData = dto.pieces.map(piece => ({
-        pieceId: piece.id,
-        quantity: piece.quantity,
-        totalPrice: piece.price * piece.quantity,
-        interventionId: intervention.id,
-      }));
-  
-      await this.prisma.interventionPiece.createMany({
-        data: interventionPiecesData,
+
+    // Décrémenter le stock des pièces
+    for (const piece of dto.pieces) {
+      await this.prisma.piece.update({
+        where: { id: piece.id },
+        data: {
+          stock: {
+            decrement: piece.quantity,
+          },
+        },
       });
     }
-  
-    // 🔄 Mettre à jour le statut du rendez-vous
-    await this.prisma.appointment.update({
-      where: { id: appointment.id },
-      data: { status: Status.IN_PROGRESS },
-    });
-  await this.prisma.notification.create({
-        data: {
-            message: `Votre intervention est commancer à ${intervention.startDate} .`,
-            type: 'Intervention commance',
-            appointmentId: appointment.id,
-        },
-    });
-    return intervention;
   }
+
+  // Mettre à jour le statut du rendez-vous
+  await this.prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { status: Status.IN_PROGRESS },
+  });
+
+  await this.prisma.notification.create({
+    data: {
+      message: `Votre intervention est commencée à ${intervention.startDate}.`,
+      type: 'Intervention commence',
+      appointmentId: appointment.id,
+    },
+  });
+
+  return intervention;
+}
+
   
   
   async getIntervention(id: number) {
@@ -127,166 +142,203 @@ export class ProgressService {
 
   // 🔁 Mettre à jour une intervention
   async updateIntervention(id: number, dto: UpdateInterventionDto) {
-    const intervention = await this.prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        interventionPieces: true,
-      },
-    });
-  
-    if (!intervention) {
-      throw new NotFoundException('Intervention not found');
-    }
-  
-    // 1. Vérifier la disponibilité en stock pour chaque pièce si pièces mises à jour
-    if (dto.pieces && dto.pieces.length > 0) {
-      for (const piece of dto.pieces) {
-        const dbPiece = await this.prisma.piece.findUnique({
-          where: { id: piece.id },
-        });
-  
-        if (!dbPiece) {
-          throw new NotFoundException(`Piece with id ${piece.id} not found`);
-        }
-  
-        if (piece.quantity > dbPiece.stock) {
-          throw new BadRequestException(
-            `Not enough stock for piece "${dbPiece.name}". Requested: ${piece.quantity}, Available: ${dbPiece.stock}`
-          );
-        }
-      }
-    }
-  
-    // 2. Mettre à jour les attributs de l'intervention
-    const updatedIntervention = await this.prisma.intervention.update({
-      where: { id },
-      data: {
-        description: dto.description ?? intervention.description,
-        endDate: dto.endDate ? new Date(dto.endDate) : intervention.endDate,
-        price: dto.price ?? intervention.price,
-        status: dto.status ?? intervention.status,
-      },
-    });
-  
-    // 3. Mettre à jour les pièces associées
-    if (dto.pieces && dto.pieces.length > 0) {
-      await this.prisma.interventionPiece.deleteMany({
-        where: { interventionId: updatedIntervention.id },
-      });
-  
-      const interventionPiecesData = dto.pieces.map(piece => ({
-        pieceId: piece.id,
-        quantity: piece.quantity,
-        totalPrice: piece.price * piece.quantity,
-        interventionId: updatedIntervention.id,
-      }));
-  
-      await this.prisma.interventionPiece.createMany({
-        data: interventionPiecesData,
-      });
-    }
-  await this.prisma.notification.create({
-        data: {
-            message: `Votre intervention est progresser .`,
-            type: 'Intervention progresser',
-           interventionId : intervention.id
-        },
-    });
-    return updatedIntervention;
+  const intervention = await this.prisma.intervention.findUnique({
+    where: { id },
+    include: { interventionPieces: true },
+  });
+
+  if (!intervention) {
+    throw new NotFoundException('Intervention not found');
   }
+
+  // Anciennes pièces et quantités
+  const oldPieces = intervention.interventionPieces;
+  const oldPiecesMap = new Map<number, number>();
+  oldPieces.forEach(p => oldPiecesMap.set(p.pieceId, p.quantity));
+
+  // Nouvelles pièces et quantités
+  const newPiecesMap = new Map<number, number>();
+  if (dto.pieces && dto.pieces.length > 0) {
+    dto.pieces.forEach(p => newPiecesMap.set(p.id, p.quantity));
+  }
+
+  // 1. Calculer le stock disponible *après* remise en stock des anciennes pièces
+  // Récupérer toutes les pièces impliquées (anciennes + nouvelles)
+  const allPieceIds = new Set<number>([
+    ...Array.from(oldPiecesMap.keys()),
+    ...Array.from(newPiecesMap.keys()),
+  ]);
+
+  // Charger les pièces en BDD
+  const piecesInDb = await this.prisma.piece.findMany({
+    where: { id: { in: Array.from(allPieceIds) } },
+  });
+
+  // Construire un map id -> stock
+  const pieceStockMap = new Map<number, number>();
+  piecesInDb.forEach(p => pieceStockMap.set(p.id, p.stock));
+
+  // 2. Simuler le stock après remise en stock des anciennes pièces
+  // On ajoute d'abord les quantités des anciennes pièces
+  for (const [pieceId, oldQty] of oldPiecesMap.entries()) {
+    pieceStockMap.set(pieceId, (pieceStockMap.get(pieceId) ?? 0) + oldQty);
+  }
+
+  // 3. Vérifier si les nouvelles quantités sont disponibles
+  for (const [pieceId, newQty] of newPiecesMap.entries()) {
+    const availableStock = pieceStockMap.get(pieceId) ?? 0;
+    if (newQty > availableStock) {
+      const pieceName = piecesInDb.find(p => p.id === pieceId)?.name ?? 'Unknown piece';
+      throw new BadRequestException(
+        `Not enough stock for piece "${pieceName}". Requested: ${newQty}, Available: ${availableStock}`,
+      );
+    }
+    // Déduire la nouvelle quantité du stock simulé
+    pieceStockMap.set(pieceId, availableStock - newQty);
+  }
+
+  // 4. Tout est ok, on peut procéder à la mise à jour :
+
+  // Mettre à jour les attributs de l'intervention
+  const updatedIntervention = await this.prisma.intervention.update({
+    where: { id },
+    data: {
+      description: dto.description ?? intervention.description,
+      endDate: dto.endDate ? new Date(dto.endDate) : intervention.endDate,
+      price: dto.price ?? intervention.price,
+      status: dto.status ?? intervention.status,
+    },
+  });
+
+  // Supprimer anciennes interventionPieces
+  await this.prisma.interventionPiece.deleteMany({
+    where: { interventionId: updatedIntervention.id },
+  });
+
+  // Remettre en stock les anciennes pièces
+  for (const oldPiece of oldPieces) {
+    await this.prisma.piece.update({
+      where: { id: oldPiece.pieceId },
+      data: { stock: { increment: oldPiece.quantity } },
+    });
+  }
+
+  // Créer les nouvelles interventionPieces et décrémenter le stock
+  if (dto.pieces && dto.pieces.length > 0) {
+    for (const piece of dto.pieces) {
+      await this.prisma.interventionPiece.create({
+        data: {
+          pieceId: piece.id,
+          quantity: piece.quantity,
+          totalPrice: piece.price * piece.quantity,
+          interventionId: updatedIntervention.id,
+        },
+      });
+
+      await this.prisma.piece.update({
+        where: { id: piece.id },
+        data: { stock: { decrement: piece.quantity } },
+      });
+    }
+  }
+
+  await this.prisma.notification.create({
+    data: {
+      message: `Votre intervention a été mise à jour.`,
+      type: 'Intervention mise à jour',
+      interventionId: intervention.id,
+    },
+  });
+
+  return updatedIntervention;
+}
+
   
   
   
   async completeIntervention(id: number) {
-    const interventionId = Number(id);
-    if (isNaN(interventionId)) {
-      throw new BadRequestException('ID must be a valid integer');
-    }
-  
-    const intervention = await this.prisma.intervention.findUnique({
-      where: { id: interventionId },
-      include: {
-        interventionPieces: {
-          include: {
-            piece: true,
-          },
-        },
-      },
-    });
-  
-    if (!intervention) {
-      throw new NotFoundException('Intervention not found');
-    }
-  
-    if (intervention.status === Status.COMPLETED) {
-      throw new BadRequestException('Intervention is already completed');
-    }
-  
-    let totalPrice = intervention.price;
-  
-    for (const interventionPiece of intervention.interventionPieces) {
-      const quantity = interventionPiece.quantity ?? 0;  // Si quantity est null, on le remplace par 0
-  
-      // Vérification de null pour interventionPiece.piece
-      if (interventionPiece.piece?.id && interventionPiece.piece?.price != null) {
-       /* totalPrice += quantity * interventionPiece.piece.price;*/
-  
-        if (quantity > 0) {
-          await this.prisma.piece.update({
-            where: { id: interventionPiece.piece.id },  // Assurez-vous que piece.id n'est pas null
-            data: {
-              stock: {
-                decrement: quantity,  // Réduire le stock
-              },
-            },
-          });
-        }
-      }
-    }
-  
-    const updatedIntervention = await this.prisma.intervention.update({
-      where: { id: interventionId },
-      data: {
-        endDate: new Date(),
-        status: Status.COMPLETED,
-        price: totalPrice,  // Mise à jour du prix total
-      },
-    });
-  
-    if (intervention.appointmentId) {
-      await this.prisma.appointment.update({
-        where: { id: intervention.appointmentId },
-        data: { status: Status.COMPLETED },
-      });
-  
-      const position = await this.prisma.position.findFirst({
-        where: { appointmentId: intervention.appointmentId },
-      });
-  
-      if (position) {
-        await this.prisma.location.update({
-          where: { id: position.locationId },
-          data: { status: 'EMPTY' },
-        });
-      }
-    }
-  
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        total: totalPrice,
-        description: intervention.description,
-        interventionId: updatedIntervention.id,
-      },
-    });
-  await this.prisma.notification.create({
-        data: {
-            message: `Votre intervention est completer .`,
-            type: 'Intervention completer',
-           interventionId : intervention.id
-        },
-    });
-    return { updatedIntervention, invoice };
+  const interventionId = Number(id);
+  if (isNaN(interventionId)) {
+    throw new BadRequestException('ID must be a valid integer');
   }
+
+  const intervention = await this.prisma.intervention.findUnique({
+    where: { id: interventionId },
+    include: {
+      interventionPieces: {
+        include: {
+          piece: true,
+        },
+      },
+    },
+  });
+
+  if (!intervention) {
+    throw new NotFoundException('Intervention not found');
+  }
+
+  if (intervention.status === Status.COMPLETED) {
+    throw new BadRequestException('Intervention is already completed');
+  }
+
+  let totalPrice = intervention.price;
+
+  // Suppression de la décrémentation du stock
+  for (const interventionPiece of intervention.interventionPieces) {
+    const quantity = interventionPiece.quantity ?? 0;
+
+    if (interventionPiece.piece?.id && interventionPiece.piece?.price != null) {
+      // Ici, tu peux calculer le prix total si tu le souhaites
+      // totalPrice += quantity * interventionPiece.piece.price;
+    }
+  }
+
+  const updatedIntervention = await this.prisma.intervention.update({
+    where: { id: interventionId },
+    data: {
+      endDate: new Date(),
+      status: Status.COMPLETED,
+      price: totalPrice,
+    },
+  });
+
+  if (intervention.appointmentId) {
+    await this.prisma.appointment.update({
+      where: { id: intervention.appointmentId },
+      data: { status: Status.COMPLETED },
+    });
+
+    const position = await this.prisma.position.findFirst({
+      where: { appointmentId: intervention.appointmentId },
+    });
+
+    if (position) {
+      await this.prisma.location.update({
+        where: { id: position.locationId },
+        data: { status: 'EMPTY' },
+      });
+    }
+  }
+
+  const invoice = await this.prisma.invoice.create({
+    data: {
+      total: totalPrice,
+      description: intervention.description,
+      interventionId: updatedIntervention.id,
+    },
+  });
+
+  await this.prisma.notification.create({
+    data: {
+      message: `Votre intervention est complétée.`,
+      type: 'Intervention complétée',
+      interventionId: intervention.id,
+    },
+  });
+
+  return { updatedIntervention, invoice };
+}
+
   
   
   
@@ -649,11 +701,11 @@ async getClientAndProviderFromIntervention(interventionId: number) {
     });
   }
 
-  async getInterventions(userId: number) {
+ async getInterventions(userId: number) {
   // Récupérer l'utilisateur avec son rôle
   const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true, id: true },
+    where: { id: Number(userId) },  // Correction ici
+    select: { role: true },
   });
 
   if (!user) {
@@ -673,18 +725,12 @@ async getClientAndProviderFromIntervention(interventionId: number) {
 
   // Si l'utilisateur est provider, retourner les interventions de ses services
   if (user.role === 'PROVIDER') {
-    // Récupérer les services du provider
-    const services = await this.prisma.service.findMany({
-      where: { providerId: userId },
-      select: { id: true },
-    });
-
-    const serviceIds = services.map((service) => service.id);
-
     return await this.prisma.intervention.findMany({
       where: {
         appointment: {
-          serviceId: { in: serviceIds },
+          service: {
+            providerId: Number(userId),  // Correction ici aussi
+          },
         },
       },
       include: {
@@ -695,7 +741,131 @@ async getClientAndProviderFromIntervention(interventionId: number) {
     });
   }
 
- 
+  
 }
+
+async getCompleted(userId: number) {
+  // Vérifier si l'utilisateur existe et est un client
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+
+  // Récupérer les interventions complétées liées aux véhicules de ce client
+  const interventions = await this.prisma.intervention.findMany({
+    where: {
+      status: Status.COMPLETED,
+      appointment: {
+        vehicle: {
+          userId: userId,
+        },
+      },
+    },
+    include: {
+      appointment: {
+        include: {
+          vehicle: true,
+          service: true,
+        },
+      },
+      interventionPieces: {
+        include: {
+          piece: true,
+        },
+      },
+    },
+  });
+
+  return interventions;
+}
+
+async getCompletedInterventionsWithInvoiceByUser(userId: number): Promise<any[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+  
+    if (!user) {
+      throw new Error('Utilisateur introuvable');
+    }
+  
+    let interventions;
+  
+    if (user.role === 'PROVIDER') {
+      const services = await this.prisma.service.findMany({
+        where: { providerId: userId },
+        select: { id: true },
+      });
+  
+      const serviceIds = services.map(service => service.id);
+  
+      interventions = await this.prisma.intervention.findMany({
+        where: {
+          status: 'COMPLETED',
+          appointment: {
+            serviceId: { in: serviceIds },
+          },
+        },
+        include: {
+          appointment: {
+            include: {
+              service: true,
+              vehicle: true,
+            },
+          },
+          Invoice: true,
+          interventionPieces: {
+            include: {
+              piece: true,
+            },
+          },
+        },
+      });
+    } else if (user.role === 'ADMIN') {
+      interventions = await this.prisma.intervention.findMany({
+        where: {
+          status: 'COMPLETED',
+        },
+        include: {
+          appointment: {
+            include: {
+              service: true,
+              vehicle: true,
+            },
+          },
+          Invoice: true,
+          interventionPieces: {
+            include: {
+              piece: true,
+            },
+          },
+        },
+      });
+    } else {
+      throw new Error('Accès non autorisé');
+    }
+  
+    // Optionnel : transformation claire des données
+    return interventions.map((intervention) => ({
+      id: intervention.id,
+      description: intervention.description,
+      startDate: intervention.startDate,
+      endDate: intervention.endDate,
+      price: intervention.price,
+      status: intervention.status,
+      rate: intervention.rate,
+      commentaire: intervention.commentaire,
+      appointment: intervention.appointment,
+      invoice: intervention.Invoice,
+      pieces: intervention.interventionPieces.map((ip) => ({
+        id: ip.piece.id,
+        name: ip.piece.name,
+        quantity: ip.quantity,
+        unitPrice: ip.piece.price,
+        totalPrice: ip.totalPrice,
+      })),
+    }));
+  }
 
 }

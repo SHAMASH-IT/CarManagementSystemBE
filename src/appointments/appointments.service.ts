@@ -596,7 +596,437 @@ async getAppointmentsByUserId(userId: number) {
 
     
     
-  }        
+  }    
+  async getTodayAppointments(userId: number) {
+  // Récupérer l'utilisateur avec son rôle
+  const user = await this.prisma.user.findUnique({
+    where: { id: Number(userId) },
+    select: { role: true },
+  });
+
+  if (!user) {
+    throw new NotFoundException('Utilisateur non trouvé');
+  }
+
+  // Obtenir la date du jour
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Début de la journée
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1); // Début du lendemain
+
+  // Si l'utilisateur est admin, retourner tous les rendez-vous d'aujourd'hui
+  if (user.role === 'ADMIN') {
+    return await this.prisma.appointment.findMany({
+      where: {
+        date: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+      include: {
+        service: true,
+        vehicle: true,
+      },
+    });
+  }
+
+  // Si l'utilisateur est provider, retourner les rendez-vous de ses services pour aujourd'hui
+  if (user.role === 'PROVIDER') {
+    // Récupérer les services du provider
+    const services = await this.prisma.service.findMany({
+      where: { providerId: Number(userId) },
+      select: { id: true },
+    });
+
+    const serviceIds = services.map((service) => service.id);
+
+    return await this.prisma.appointment.findMany({
+      where: {
+        date: {
+          gte: today,
+          lt: tomorrow,
+        },
+        serviceId: { in: serviceIds },
+      },
+      include: {
+        service: true,
+        vehicle: true,
+      },
+    });
+  }
+
+ 
+}    
+
+
+/* async createAppointment(dto: Createappointment) {
+  const vehicle = await this.prisma.vehicle.findUnique({
+    where: { id: dto.vehicleId },
+  });
+
+  const service = await this.prisma.service.findUnique({
+    where: { id: dto.serviceId },
+  });
+
+  if (!vehicle) throw new NotFoundException('Vehicle not found!');
+  if (!service) throw new NotFoundException('Service not found!');
+
+  const appointmentDate = new Date(`${dto.date}T${dto.time}:00`);
+
+  // Vérifie s’il y a déjà un rendez-vous actif pour le véhicule ce jour-là
+  const appointmentDayStart = new Date(dto.date + 'T00:00:00');
+  const appointmentDayEnd = new Date(dto.date + 'T23:59:59');
+  
+  const activeAppointment = await this.prisma.appointment.findFirst({
+    where: {
+      vehicleId: vehicle.id,
+      status: {
+        in: ['RESERVED', 'IN_PROGRESS','PENDING'],
+      },
+      date: {
+        gte: appointmentDayStart,
+        lte: appointmentDayEnd,
+      },
+    },
+  });
+
+  if (activeAppointment) {
+    throw new ConflictException(
+      'This vehicle already has an active appointment. Please cancel or complete it before scheduling a new one.',
+    );
+  }
+
+  const conflictingAppointments = await this.prisma.appointment.findMany({
+    where: {
+      serviceId: dto.serviceId,
+      date: appointmentDate,
+      status: {
+        not: 'CANCELLED',
+      },
+    },
+  });
+
+  const serviceParkings = await this.prisma.parking.findMany({
+    where: { serviceId: dto.serviceId },
+    include: {
+      locations: true,
+    },
+  });
+
+  const allLocations = serviceParkings.flatMap(p => p.locations);
+  const totalLocations = allLocations.length;
+
+  if (conflictingAppointments.length >= totalLocations) {
+    throw new ConflictException('No available parking locations for this time slot.');
+  }
+
+  const usedLocationIds = await this.prisma.position.findMany({
+    where: {
+      appointment: {
+        serviceId: dto.serviceId,
+        date: appointmentDate,
+        status: {
+          not: 'CANCELLED',
+        },
+      },
+    },
+    select: { locationId: true },
+  });
+
+  const usedIds = usedLocationIds.map(p => p.locationId);
+  const availableLocation = allLocations.find(loc => !usedIds.includes(loc.id));
+
+  if (!availableLocation) {
+    throw new ConflictException('No available location found for this time.');
+  }
+
+  const appointment = await this.prisma.appointment.create({
+    data: {
+      date: appointmentDate,
+      time: appointmentDate,
+      vehicleId: dto.vehicleId,
+      serviceId: dto.serviceId,
+      status: 'PENDING',
+    },
+  });
+
+  await this.prisma.position.create({
+    data: {
+      vehicleId: vehicle.id,
+      locationId: availableLocation.id,
+      appointmentId: appointment.id,
+    },
+  });
+
+  await this.prisma.notification.create({
+    data: {
+      message: `Votre rendez-vous est créé pour le ${dto.date} à ${dto.time}.`,
+      type: 'Appointment Created',
+      appointmentId: appointment.id,
+    },
+  });
+
+  return appointment;
+}
+async cancelAppointment(appointmentId: number) {
+  const appointment = await this.prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      vehicle: {
+        select: {
+          positions: {
+            select: {
+              appointmentId: true,
+              locationId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!appointment) {
+    throw new NotFoundException('Appointment not found!');
+  }
+
+  const positionToDelete = appointment.vehicle.positions.find(
+    (p) => p.appointmentId === appointmentId
+  );
+
+  await this.prisma.notification.create({
+    data: {
+      message: `Votre rendez-vous est annulé.`,
+      type: 'Appointment Annuler',
+      appointmentId: appointment.id,
+    },
+  });
+
+  return this.prisma.$transaction([
+    this.prisma.position.deleteMany({
+      where: { appointmentId },
+    }),
+    this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: 'CANCELLED' },
+    }),
+  ]);
+}
+async updateAppointmentDateTime(appointmentId: number, dto: updateAppointment) {
+  const appointment = await this.prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      vehicle: {
+        include: {
+          positions: true,
+        },
+      },
+      service: true,
+    },
+  });
+
+  if (!appointment) {
+    throw new NotFoundException('Appointment not found!');
+  }
+
+  const vehicle = appointment.vehicle;
+  const service = appointment.service;
+
+  const updatedDate = dto.date ?? appointment.date.toISOString().split('T')[0];
+  const updatedTime = dto.time ?? appointment.time.toISOString().split('T')[1].slice(0, 5);
+
+  const appointmentDateTime = new Date(`${updatedDate}T${updatedTime}:00`);
+
+  // ✅ Vérifier si un autre RDV est déjà prévu pour ce véhicule à ce moment
+  const existingAppointment = await this.prisma.appointment.findFirst({
+    where: {
+      vehicleId: vehicle.id,
+      date: appointmentDateTime,
+      id: { not: appointmentId }, // Ignorer le rendez-vous actuel
+    },
+  });
+
+  if (existingAppointment) {
+    throw new ConflictException('This vehicle already has an appointment at this time.');
+  }
+
+  // ✅ Vérifier le nombre total de rendez-vous à ce moment pour ce service
+  const sameTimeAppointments = await this.prisma.appointment.findMany({
+    where: {
+      serviceId: service.id,
+      date: appointmentDateTime,
+      status: { not: 'CANCELLED' },
+    },
+  });
+
+  const availableLocations = await this.parkingService.getLocationsByServiceId(service.id);
+  const totalAvailable = availableLocations.length;
+
+  if (sameTimeAppointments.length >= totalAvailable) {
+    throw new ConflictException('No available parking locations at this time for the selected service.');
+  }
+
+  // ✅ Récupérer toutes les `positions` à ce moment pour ce service
+  const usedLocationIds = await this.prisma.position.findMany({
+    where: {
+      appointmentId: {
+        in: sameTimeAppointments.map((a) => a.id),
+      },
+    },
+    select: { locationId: true },
+  });
+
+  const usedIds = usedLocationIds.map((pos) => pos.locationId);
+  const freeLocation = availableLocations.find(loc => !usedIds.includes(loc.id));
+
+  if (!freeLocation) {
+    throw new ConflictException('No free parking location found at the selected time.');
+  }
+
+  return this.prisma.$transaction([
+    // Supprimer ancienne position
+    this.prisma.position.deleteMany({
+      where: { appointmentId },
+    }),
+    // Mettre à jour le rendez-vous
+    this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        date: appointmentDateTime,
+        time: appointmentDateTime,
+        status: 'PENDING',
+      },
+    }),
+    // Créer la nouvelle position
+    this.prisma.position.create({
+      data: {
+        vehicleId: vehicle.id,
+        locationId: freeLocation.id,
+        appointmentId: appointmentId,
+      },
+    }),
+    // Envoyer une notification
+    this.prisma.notification.create({
+      data: {
+        message: `Votre rendez-vous a été mis à jour au ${updatedDate} à ${updatedTime}.`,
+        type: 'Appointment Updated',
+        appointmentId: appointmentId,
+      },
+    }),
+  ]);
+}
+async startIntervention(appointmentId: string, dto: StartInterventionDto) {
+  const appointment = await this.prisma.appointment.findUnique({
+    where: { id: Number.parseInt(appointmentId) },
+  });
+
+  if (!appointment) {
+    throw new NotFoundException('Appointment not found');
+  }
+
+  if (appointment.status !== Status.RESERVED) {
+    throw new BadRequestException('This appointment is not in a RESERVED state');
+  }
+
+  // Vérifier s’il existe déjà une intervention liée à ce rendez-vous
+  const existingIntervention = await this.prisma.intervention.findFirst({
+    where: { appointmentId: appointment.id },
+  });
+
+  if (existingIntervention) {
+    throw new BadRequestException('An intervention is already associated with this appointment');
+  }
+
+  // Vérifier la disponibilité des pièces
+  if (dto.pieces && dto.pieces.length > 0) {
+    for (const piece of dto.pieces) {
+      const dbPiece = await this.prisma.piece.findUnique({
+        where: { id: piece.id },
+      });
+
+      if (!dbPiece) {
+        throw new NotFoundException(`Piece with id ${piece.id} not found`);
+      }
+
+      if (piece.quantity > dbPiece.stock) {
+        throw new BadRequestException(
+          `Not enough stock for piece "${dbPiece.name}". Requested: ${piece.quantity}, Available: ${dbPiece.stock}`,
+        );
+      }
+    }
+  }
+
+  // Récupérer la location liée au rendez-vous via la table position
+  const position = await this.prisma.position.findFirst({
+    where: { appointmentId: appointment.id },
+  });
+
+  // Lancer la transaction
+  return this.prisma.$transaction(async (tx) => {
+    // Créer l’intervention
+    const intervention = await tx.intervention.create({
+      data: {
+        description: dto.description,
+        startDate: new Date(),
+        endDate: new Date(dto.endDate),
+        price: dto.price,
+        status: Status.IN_PROGRESS,
+        appointmentId: appointment.id,
+      },
+    });
+
+    // Associer les pièces
+    if (dto.pieces && dto.pieces.length > 0) {
+      const interventionPiecesData = dto.pieces.map(piece => ({
+        pieceId: piece.id,
+        quantity: piece.quantity,
+        totalPrice: piece.price * piece.quantity,
+        interventionId: intervention.id,
+      }));
+
+      await tx.interventionPiece.createMany({
+        data: interventionPiecesData,
+      });
+
+      for (const piece of dto.pieces) {
+        await tx.piece.update({
+          where: { id: piece.id },
+          data: {
+            stock: {
+              decrement: piece.quantity,
+            },
+          },
+        });
+      }
+    }
+
+    // Mettre à jour le statut du rendez-vous
+    await tx.appointment.update({
+      where: { id: appointment.id },
+      data: { status: Status.IN_PROGRESS },
+    });
+
+    // ✅ Mettre à jour la location en OCCUPIED
+    if (position?.locationId) {
+      await tx.location.update({
+        where: { id: position.locationId },
+        data: { status: 'OCCUPIED' },
+      });
+    }
+
+    // Créer une notification
+    await tx.notification.create({
+      data: {
+        message: `Votre intervention est commencée à ${new Date().toLocaleString()}.`,
+        type: 'Intervention commence',
+        appointmentId: appointment.id,
+      },
+    });
+
+    return intervention;
+  });
+}
+
+*/
 }    
 
 
