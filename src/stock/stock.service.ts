@@ -100,11 +100,29 @@ async updateCategory(id: number, dto: CreateCategoryDto) {
       }
     
       async updatePiece(id: number, dto: UpdatePieceDto) {
-        return this.prisma.piece.update({
-          where: { id },
-          data: dto,
-        });
-      }
+  // Met à jour la pièce
+  const updatedPiece = await this.prisma.piece.update({
+    where: { id },
+    data: dto,
+  });
+
+  // Vérifie si la quantité est <= au seuil après mise à jour
+  if (updatedPiece.stock <= updatedPiece.threshold) {
+    // Créer une notification (type générique ici)
+    await this.prisma.notification.create({
+      data: {
+        message: `La pièce "${updatedPiece.name}" est en dessous du seuil de sécurité (${updatedPiece.stock}/${updatedPiece.threshold})`,
+        type: 'Stock Alert',
+        createdAt: new Date(),
+        read: false,
+         pieceId: updatedPiece.id,
+      },
+    });
+  }
+
+  return updatedPiece;
+}
+
     
       async deletePiece(id: number) {
         return this.prisma.piece.delete({ where: { id } });
@@ -205,7 +223,7 @@ async updateCategory(id: number, dto: CreateCategoryDto) {
         return updatedOrder;
       }*/
     
-async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[]}) {
+async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[] }) {
   const orderDate = new Date();
 
   // Vérifier la disponibilité de chaque pièce
@@ -223,19 +241,25 @@ async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[]})
     }
   }
 
-  // Créer la commande et les lignes de commande (OrderPiece) en une transaction
+  // Créer la commande en transaction
   const [order] = await this.prisma.$transaction([
     this.prisma.order.create({
       data: {
         date: orderDate,
-        status: Status.RESERVED,
-        ordertype: StatusOrder.SELLING,
-        
+        status: 'RESERVED', // ou Status.RESERVED si importé
+        ordertype: 'SELLING', // ou StatusOrder.SELLING si importé
       },
     }),
   ]);
 
   for (const item of dto.pieces) {
+    // Mettre à jour le stock
+    const updatedPiece = await this.prisma.piece.update({
+      where: { id: item.pieceId },
+      data: { stock: { decrement: item.quantity } },
+    });
+
+    // Créer la ligne de commande
     await this.prisma.orderPiece.create({
       data: {
         orderId: order.id,
@@ -244,14 +268,21 @@ async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[]})
       },
     });
 
-    await this.prisma.piece.update({
-      where: { id: item.pieceId },
-      data: { stock: { decrement: item.quantity } },
-    });
+    // Vérifier si le stock est inférieur ou égal au seuil
+    if (updatedPiece.stock <= updatedPiece.threshold) {
+      await this.prisma.notification.create({
+        data: {
+          message: `Le stock de la pièce "${updatedPiece.name}" est faible (seuil: ${updatedPiece.threshold}).`,
+          type: 'Stock Alert',
+          pieceId: updatedPiece.id,
+        },
+      });
+    }
   }
 
   return order;
 }
+
 
      async cancelOrderSelling(id: number) {
   // Convertir l'ID en nombre
@@ -652,5 +683,128 @@ async getOrderWithPieces(orderId: number): Promise<any> {
     })),
   };
 }
+async getCategoriesByProviderId(providerId: number) {
+  // Vérifie si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  // Récupère les catégories du provider
+  return this.prisma.category.findMany({
+    where: { providerId },
+    include: { pieces: true },
+  });
+}
+async getPiecesByProviderId(providerId: number) {
+  // Vérifie si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  // Récupère les pièces liées aux catégories du provider
+  return this.prisma.piece.findMany({
+    where: {
+      category: {
+        providerId: providerId,
+      },
+    },
+    include: {
+      category: true,
+      interventionPieces: true,
+    },
+  });
+}
+async getOrderSellingByProviderId(providerId: number) {
+  // Vérifie si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  return this.prisma.order.findMany({
+    where: {
+      ordertype: 'SELLING',
+      Piece: {
+        some: {
+          category: {
+            providerId: providerId,
+          },
+        },
+      },
+    },
+    include: {
+      Piece: true,
+      orderPieces: true,
+      user: true,
+    },
+  });
+}
+
+async getOrderBuyingByProviderId(providerId: number) {
+  // Vérifie si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  return this.prisma.order.findMany({
+    where: {
+      ordertype: 'BUYING',
+      Piece: {
+        some: {
+          category: {
+            providerId: providerId,
+          },
+        },
+      },
+    },
+    include: {
+      Piece: true,
+      orderPieces: true,
+      user: true,
+    },
+  });
+}
+async getNotificationsByProvider(providerId: number) {
+  // Vérifier si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  // Récupérer les notifications liées aux pièces associées aux catégories du provider
+  const notifications = await this.prisma.notification.findMany({
+    where: {
+      piece: {
+        category: {
+          providerId: providerId,  // ici on suppose que category a un providerId, sinon il faut adapter
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return notifications;
+}
+
 
 }

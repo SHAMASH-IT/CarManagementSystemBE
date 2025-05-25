@@ -397,6 +397,130 @@ async getYearInvoicesByService(serviceId: number): Promise<number> {
 }
 
 
+async getAppointmentsByProviderAndDate(
+  providerId: number,
+  filter: 'today' | 'last28days' | 'last70days' | 'specific',
+  specificDate?: Date,
+) {
+  let startDate: Date;
+  let endDate: Date;
+
+  const today = new Date();
+
+  switch (filter) {
+    case 'today':
+      startDate = startOfDay(today);
+      endDate = endOfDay(today);
+      break;
+
+    case 'last28days':
+      endDate = endOfDay(today);
+      startDate = subDays(endDate, 28);
+      break;
+
+    case 'last70days':
+      endDate = endOfDay(today);
+      startDate = subDays(endDate, 70);
+      break;
+
+    case 'specific':
+      if (!specificDate) {
+        throw new Error('specificDate is required for "specific" filter');
+      }
+      startDate = startOfDay(specificDate);
+      endDate = endOfDay(specificDate);
+      break;
+
+    default:
+      throw new Error('Invalid filter type');
+  }
+
+  // Récupérer les rendez-vous des services liés au provider
+  const appointments = await this.prisma.appointment.findMany({
+    where: {
+      service: {
+        providerId: providerId,
+      },
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      service: true,
+      vehicle: true,
+
+    },
+  });
+
+  return appointments;
+}
+async getAppointmentsByProviderAndService(providerId: number, serviceId: number) {
+  // Vérifier si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  // Vérifier si le service appartient bien à ce provider
+  const service = await this.prisma.service.findFirst({
+    where: {
+      id: serviceId,
+      providerId: providerId,
+    },
+  });
+
+  if (!service) {
+    throw new NotFoundException(
+      `Service with id ${serviceId} not found for provider ${providerId}`,
+    );
+  }
+
+  // Récupérer les rendez-vous associés à ce service
+  const appointments = await this.prisma.appointment.findMany({
+    where: {
+      serviceId: serviceId,
+    },
+    include: {
+      service: true,
+      vehicle: true,
+     
+    },
+  });
+
+  return appointments;
+}
+async getAppointmentsByProvider(providerId: number) {
+  // Vérifier si le provider existe
+  const provider = await this.prisma.user.findUnique({
+    where: { id: providerId },
+  });
+
+  if (!provider) {
+    throw new NotFoundException(`Provider with id ${providerId} not found`);
+  }
+
+  // Récupérer les rendez-vous liés aux services du provider
+  const appointments = await this.prisma.appointment.findMany({
+    where: {
+      service: {
+        providerId: providerId,
+      },
+    },
+    include: {
+      service: true,
+      vehicle: true,
+ 
+    },
+  });
+
+  return appointments;
+}
+
+
 }
 
  

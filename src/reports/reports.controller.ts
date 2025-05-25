@@ -118,4 +118,54 @@ export class ReportsController { constructor(private readonly reportsService: Re
       };
     }
   }
+
+  @Get('appointments/:providerId/today')
+  async getTodayAppointmentsProvider(@Param('providerId') providerId: string) {
+    return this.reportsService.getAppointmentsByProviderAndDate(+providerId, 'today');
+  }
+
+  @Get('appointments/:providerId/last-28-days')
+  async getLast28DaysAppointmentsProvider(@Param('providerId') providerId: string) {
+    return this.reportsService.getAppointmentsByProviderAndDate(+providerId, 'last28days');
+  }
+
+  @Get('appointments/:providerId/last-70-days')
+  async getLast70DaysAppointmentsProvider(@Param('providerId') providerId: string) {
+    return this.reportsService.getAppointmentsByProviderAndDate(+providerId, 'last70days');
+  }
+
+  @Get('appointments/:providerId/specific-day')
+  async getSpecificDayAppointmentsProvider(
+    @Param('providerId') providerId: string,
+    @Query('date') date: string,
+  ) {
+    if (!date) {
+      return { error: 'You must provide a date in the query parameter (YYYY-MM-DD).' };
+    }
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      return { error: 'Invalid date format. Use YYYY-MM-DD.' };
+    }
+
+    return this.reportsService.getAppointmentsByProviderAndDate(+providerId, 'specific', parsedDate);
+  }
+
+  
+  @Get('appointments/provider/:providerId')
+  async getAppointmentsByProvider(@Param('providerId') providerId: string) {
+    return this.reportsService.getAppointmentsByProvider(+providerId);
+  }
+
+  // Récupérer les rendez-vous d’un provider pour un service donné
+  @Get('appointments/provider/:providerId/service/:serviceId')
+  async getAppointmentsByProviderAndService(
+    @Param('providerId') providerId: string,
+    @Param('serviceId') serviceId: string,
+  ) {
+    return this.reportsService.getAppointmentsByProviderAndService(
+      +providerId,
+      +serviceId,
+    );
+  }
 }

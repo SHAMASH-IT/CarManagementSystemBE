@@ -64,7 +64,9 @@
     
 
     services Service[]
-  }
+  
+    Category Category[]
+}
 
   model Vehicle {
     id           Int          @id @default(autoincrement())
@@ -116,7 +118,9 @@
     appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   interventionId Int?
     intervention  Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
-  
+    pieceId      Int?          // Ajout du champ optionnel pieceId
+  piece        Piece?        @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
   }
   model Appointment {
     id          Int            @id @default(autoincrement())
@@ -144,6 +148,8 @@
   model Category {
     id     Int     @id @default(autoincrement())
     name   String
+     providerId Int?
+  provider   User?    @relation(fields: [providerId], references: [id], onDelete: Cascade)
     pieces Piece[]
   }
 
@@ -166,7 +172,9 @@
     
 
     OrderPiece OrderPiece[]
-  }
+  
+    Notification Notification[]
+}
 
   model Intervention {
     id                  Int                   @id @default(autoincrement())

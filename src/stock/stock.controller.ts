@@ -184,4 +184,37 @@ async getInvoiceByOrder(@Param('orderId') orderId: number) {
   async getOrderWithPieces(@Param('id') id: number) {
     return await this.stockService.getOrderWithPieces(id);
   }
+   @Get('categories/provider/:providerId')
+  getCategoriesByProviderId(@Param('providerId', ParseIntPipe) providerId: number) {
+    return this.stockService.getCategoriesByProviderId(providerId);
+  }
+
+
+  @Get('pieces/provider/:providerId')
+  async getPiecesByProviderId(
+    @Param('providerId', ParseIntPipe) providerId: number,
+  ) {
+    return this.stockService.getPiecesByProviderId(providerId);
+  }
+  @Get('orders/selling/provider/:providerId')
+async getOrderSellingProvider(
+  @Param('providerId', ParseIntPipe) providerId: number,
+) {
+  return this.stockService.getOrderSellingByProviderId(providerId);
+}
+
+@Get('orders/buying/provider/:providerId')
+async getOrderBuyingProvider(
+  @Param('providerId', ParseIntPipe) providerId: number,
+) {
+  return this.stockService.getOrderBuyingByProviderId(providerId);
+}
+@Get('notifications/provider/:providerId')
+  async getNotificationsByProvider(
+    @Param('providerId', ParseIntPipe) providerId: number,
+  ) {
+    const notifications = await this.stockService.getNotificationsByProvider(providerId);
+   
+    return notifications;
+  }
 }
