@@ -23,9 +23,13 @@ export class StockService {
   }
 
   return this.prisma.category.create({
-    data: dto,
+    data: {
+      name: dto.name,
+      providerId: parseInt(dto.providerId, 10), // ✅ Conversion string → number
+    },
   });
 }
+
 
 async updateCategory(id: number, dto: CreateCategoryDto) {
   // Vérifier si la catégorie existe
@@ -41,7 +45,7 @@ async updateCategory(id: number, dto: CreateCategoryDto) {
   const existingCategory = await this.prisma.category.findFirst({
     where: {
       name: dto.name,
-      id: { not: id }, // Exclure la catégorie actuelle
+      id: { not: id },
     },
   });
 
@@ -51,9 +55,13 @@ async updateCategory(id: number, dto: CreateCategoryDto) {
 
   return this.prisma.category.update({
     where: { id },
-    data: dto,
+    data: {
+      name: dto.name,
+       // ✅ conversion explicite
+    },
   });
 }
+
 
     async deleteCategory(id: number) {
       const category = await this.prisma.category.findUnique({
@@ -724,7 +732,7 @@ async getPiecesByProviderId(providerId: number) {
 }
 async getOrderSellingByProviderId(providerId: number) {
   // Vérifie si le provider existe
-  const provider = await this.prisma.user.findUnique({
+   const provider = await this.prisma.user.findUnique({
     where: { id: providerId },
   });
 
@@ -735,24 +743,31 @@ async getOrderSellingByProviderId(providerId: number) {
   return this.prisma.order.findMany({
     where: {
       ordertype: 'SELLING',
-      Piece: {
+      orderPieces: {
         some: {
-          category: {
-            providerId: providerId,
+          piece: {
+            category: {
+              providerId: providerId,
+            },
           },
         },
       },
     },
     include: {
-      Piece: true,
-      orderPieces: true,
-      user: true,
+      orderPieces: {
+        include: {
+          piece: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      },
     },
   });
 }
 
 async getOrderBuyingByProviderId(providerId: number) {
-  // Vérifie si le provider existe
   const provider = await this.prisma.user.findUnique({
     where: { id: providerId },
   });
@@ -764,21 +779,31 @@ async getOrderBuyingByProviderId(providerId: number) {
   return this.prisma.order.findMany({
     where: {
       ordertype: 'BUYING',
-      Piece: {
+      orderPieces: {
         some: {
-          category: {
-            providerId: providerId,
+          piece: {
+            category: {
+              providerId: providerId,
+            },
           },
         },
       },
     },
     include: {
-      Piece: true,
-      orderPieces: true,
+      orderPieces: {
+        include: {
+          piece: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      },
       user: true,
     },
   });
 }
+
 async getNotificationsByProvider(providerId: number) {
   // Vérifier si le provider existe
   const provider = await this.prisma.user.findUnique({

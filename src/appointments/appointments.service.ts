@@ -44,6 +44,7 @@ export class AppointmentsService {
          });
 
     if (activeAppointment) {
+      
         throw new ConflictException(
             'This vehicle already has an active appointment. Please cancel or complete it before scheduling a new one.',
         );
@@ -53,16 +54,7 @@ export class AppointmentsService {
     
     
 
-        const existingAppointment = await this.prisma.appointment.findFirst({
-            where: {
-                vehicleId: vehicle.id,
-                date: appointmentDateTime,
-            },
-        });
-
-        if (existingAppointment) {
-            throw new ConflictException('An appointment is already scheduled for this vehicle at this time!');
-        }
+        
 
         const availableLocations = await this.parkingService.getEmptyLocationsByServiceId(service.id);
 
@@ -72,15 +64,18 @@ export class AppointmentsService {
 
         const selectedLocation = availableLocations[0];
 
-        const appointment = await this.prisma.appointment.create({
-            data: {
-                date: appointmentDateTime,
-                time: appointmentDateTime,
-                vehicleId: vehicle.id,
-                serviceId: service.id,
-                status : "PENDING"
-            },
-        });
+        const appointmentDateTimePlusOneHour = new Date(appointmentDateTime);
+appointmentDateTimePlusOneHour.setHours(appointmentDateTimePlusOneHour.getHours() + 1);
+
+const appointment = await this.prisma.appointment.create({
+    data: {
+        date: appointmentDateTime,
+        time: appointmentDateTimePlusOneHour,
+        vehicleId: vehicle.id,
+        serviceId: service.id,
+        status: "PENDING"
+    },
+});
         
         await this.prisma.$transaction([
             this.prisma.location.update({
@@ -160,95 +155,97 @@ await this.prisma.notification.create({
     
 }
 
-        // Update appointment date and/or time
-    async updateAppointmentDateTime(appointmentId: number, dto: updateAppointment) {
-        const appointment = await this.prisma.appointment.findUnique({
-            where: { id: appointmentId },
-            include: {
-                vehicle: {
-                    include: {
-                        positions: {
-                            include: { location: true },
-                        },
-                    },
-                },
-                service: true,
-            },
-        });
-    
-        if (!appointment) {
-            throw new NotFoundException('Appointment not found!');
-        }
-    
-        const vehicle = appointment.vehicle;
-        const service = appointment.service;
-        const oldLocationId = appointment.vehicle.positions.find(
-            (p) => p.appointmentId === appointmentId
-        )?.locationId;
-    
-        const updatedData: any = {};
-        if (dto.date) updatedData.date = new Date(dto.date);
-        if (dto.time) updatedData.time = new Date(`${dto.date || appointment.date.toISOString().split('T')[0]}T${dto.time}:00`);
-    
-        if (dto.date || dto.time) {
-            const appointmentDateTime = updatedData.time || appointment.time;
-            const existingAppointment = await this.prisma.appointment.findFirst({
-                where: {
-                    vehicleId: vehicle.id,
-                    date: appointmentDateTime,
-                },
-            });
-    
-            if (existingAppointment) {
-                throw new ConflictException('An appointment is already scheduled for this vehicle at this time!');
-            }
-        }
-    
-        const availableLocations = await this.parkingService.getEmptyLocationsByServiceId(service.id);
-        if (availableLocations.length === 0) {
-            throw new ConflictException('No available locations for the selected service at this time!');
-        }
-    
-        const newLocation = availableLocations[0];
-    
-        return this.prisma.$transaction([
-            
-            this.prisma.position.deleteMany({
-                where: {
-                    appointmentId
-                }
+       // Update appointment date and/or time
+async updateAppointmentDateTime(appointmentId: number, dto: updateAppointment) {
+  const appointment = await this.prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      vehicle: {
+        include: {
+          positions: {
+            include: { location: true },
+          },
+        },
+      },
+      service: true,
+    },
+  });
 
-            }),
-            this.prisma.appointment.update({
-                where: { id: appointmentId },
-                data: updatedData,
-                
-            }),
-            ...(oldLocationId ? [
-                this.prisma.location.update({
-                    where: { id: oldLocationId },
-                    data: { status: 'EMPTY' },
-                })
-            ] : []),
-            this.prisma.appointment.update({
-                where: { id: appointmentId },
-                data: {status:"PENDING"},
-                
-            }),
-            this.prisma.location.update({
-                where: { id: newLocation.id },
-                data: { status: 'OCCUPIED' },
-            }),
-            this.prisma.position.create({
-                data: {
-                    vehicleId: vehicle.id,
-                    locationId: newLocation.id,
-                    appointmentId: appointmentId,
-                },
-            }),
-        ]);
-    }
-   
+  if (!appointment) {
+    throw new NotFoundException('Appointment not found!');
+  }
+
+  const vehicle = appointment.vehicle;
+  const service = appointment.service;
+  const oldLocationId = appointment.vehicle.positions.find(
+    (p) => p.appointmentId === appointmentId
+  )?.locationId;
+
+  const updatedData: any = {};
+  let newDate: Date | null = null;
+
+  // 1. Mise à jour de la date (sans heure)
+  if (dto.date) {
+    newDate = new Date(dto.date);
+    updatedData.date = newDate;
+  }
+
+  // 2. Création de la valeur pour time (même jour avec heures/minutes injectés)
+  if (dto.time) {
+    const baseDate = newDate ?? new Date(appointment.date.toISOString().split('T')[0]);
+    const [hours, minutes] = dto.time.split(':').map(Number);
+    baseDate.setHours(hours);
+    baseDate.setMinutes(minutes || 0);
+    baseDate.setSeconds(0);
+    baseDate.setMilliseconds(0);
+    updatedData.time = baseDate;
+  }
+
+  
+  // 4. Vérification des emplacements disponibles
+  const availableLocations = await this.parkingService.getEmptyLocationsByServiceId(service.id);
+  if (availableLocations.length === 0) {
+    throw new ConflictException('No available locations for the selected service at this time!');
+  }
+
+  const newLocation = availableLocations[0];
+
+  // 5. Mise à jour en transaction
+  return this.prisma.$transaction([
+    this.prisma.position.deleteMany({
+      where: {
+        appointmentId,
+      },
+    }),
+    this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: updatedData,
+    }),
+    ...(oldLocationId ? [
+      this.prisma.location.update({
+        where: { id: oldLocationId },
+        data: { status: 'EMPTY' },
+      }),
+    ] : []),
+    this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: 'PENDING' },
+    }),
+    this.prisma.location.update({
+      where: { id: newLocation.id },
+      data: { status: 'OCCUPIED' },
+    }),
+    this.prisma.position.create({
+      data: {
+        vehicleId: vehicle.id,
+        locationId: newLocation.id,
+        appointmentId: appointmentId,
+      },
+    }),
+  ]);
+}
+
+
 
     async getServices(){
         return this.prisma.service.findMany();
@@ -740,15 +737,18 @@ async getAppointmentsByUserId(userId: number) {
     throw new ConflictException('No available location found for this time.');
   }
 
-  const appointment = await this.prisma.appointment.create({
+  const appointmentDateTimePlusOneHour = new Date(appointmentDateTime);
+appointmentDateTimePlusOneHour.setHours(appointmentDateTimePlusOneHour.getHours() + 1);
+
+const appointment = await this.prisma.appointment.create({
     data: {
-      date: appointmentDate,
-      time: appointmentDate,
-      vehicleId: dto.vehicleId,
-      serviceId: dto.serviceId,
-      status: 'PENDING',
+        date: appointmentDateTime,
+        time: appointmentDateTimePlusOneHour,
+        vehicleId: vehicle.id,
+        serviceId: service.id,
+        status: "PENDING"
     },
-  });
+});
 
   await this.prisma.position.create({
     data: {

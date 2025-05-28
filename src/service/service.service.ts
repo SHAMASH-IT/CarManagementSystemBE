@@ -37,4 +37,9 @@ async remove(id: number) {
   }
   return this.prisma.service.delete({ where: { id } });
 }
+async findByProviderId(providerId: number) {
+    return this.prisma.service.findMany({
+      where: { providerId }
+    });
+  }
 }

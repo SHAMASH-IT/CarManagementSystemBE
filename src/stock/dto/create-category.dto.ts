@@ -6,5 +6,5 @@ export class CreateCategoryDto {
   name: string;
    @IsInt()
   @IsNotEmpty()
-  providerId: number;
+  providerId: string;
 }

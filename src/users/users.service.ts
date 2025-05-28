@@ -284,116 +284,172 @@ export class UsersService {
     return user;
   }
   async getUnreadUserNotifications(userId: number) {
-    // Récupérer toutes les notifications non lues liées aux rendez-vous ou interventions de l'utilisateur
-    const notifications = await this.prisma.notification.findMany({
-      where: {
-        read: false,
-        OR: [
-          // Notifications des rendez-vous liés aux véhicules de l'utilisateur
-          {
-            appointment: {
-              vehicle: {
-                userId: userId,
-              },
-            },
-          },
-          // Notifications des interventions liées aux véhicules de l'utilisateur
-          {
-            intervention: {
-              appointment: {
-                vehicle: {
-                  userId: userId,
-                },
-              },
-            },
-          },
-        ],
-      },
-      include: {
-        appointment: {
-          select: {
-            id: true,
-            date: true,
-            time: true,
-          },
-        },
-        intervention: {
-          select: {
-            id: true,
-            description: true,
-            status: true,
-          },
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!user) throw new NotFoundException(`Utilisateur ${userId} introuvable`);
+
+  const baseConditions: any[] = [
+    {
+      appointment: {
+        vehicle: {
+          userId,
         },
       },
-    });
-
-    return notifications;
-  }
-  async markAllNotificationsAsRead(userId: number) {
-    const result = await this.prisma.notification.updateMany({
-      where: {
-        read: false,
-        OR: [
-          // Notifications liées aux rendez-vous des véhicules de l'utilisateur
-          {
-            appointment: {
-              vehicle: {
-                userId: userId,
-              },
-            },
-          },
-          // Notifications liées aux interventions des véhicules de l'utilisateur
-          {
-            intervention: {
-              appointment: {
-                vehicle: {
-                  userId: userId,
-                },
-              },
-            },
-          },
-        ],
-      },
-      data: {
-        read: true,
-      },
-    });
-
-    return {
-      message: `${result.count} notifications marquées comme lues.`,
-      updatedCount: result.count,
-    };
-  }
-  async countUnreadNotifications(userId: number): Promise<number> {
-    // Compter les notifications non lues liées aux rendez-vous de l'utilisateur
-    const appointmentNotificationsCount = await this.prisma.notification.count({
-      where: {
-        read: false,
+    },
+    {
+      intervention: {
         appointment: {
           vehicle: {
-            userId: userId,
+            userId,
           },
+        },
+      },
+    },
+  ];
+
+  if (user.role === 'PROVIDER') {
+    baseConditions.push({
+      piece: {
+        category: {
+          providerId: userId,
         },
       },
     });
+  }
 
-    // Compter les notifications non lues liées aux interventions de l'utilisateur
-    const interventionNotificationsCount = await this.prisma.notification.count(
-      {
-        where: {
-          read: false,
-          intervention: {
-            appointment: {
-              vehicle: {
-                userId: userId,
-              },
-            },
+  const notifications = await this.prisma.notification.findMany({
+    where: {
+      read: false,
+      OR: baseConditions,
+    },
+    include: {
+      appointment: {
+        select: {
+          id: true,
+          date: true,
+          time: true,
+        },
+      },
+      intervention: {
+        select: {
+          id: true,
+          description: true,
+          status: true,
+        },
+      },
+      piece: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  return notifications;
+}
+
+  async markAllNotificationsAsRead(userId: number) {
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!user) throw new NotFoundException(`Utilisateur ${userId} introuvable`);
+
+  const conditions: any[] = [
+    {
+      appointment: {
+        vehicle: {
+          userId,
+        },
+      },
+    },
+    {
+      intervention: {
+        appointment: {
+          vehicle: {
+            userId,
           },
         },
       },
-    );
+    },
+  ];
 
-    // Retourner le total des notifications non lues
-    return appointmentNotificationsCount + interventionNotificationsCount;
+  if (user.role === 'PROVIDER') {
+    conditions.push({
+      piece: {
+        category: {
+          providerId: userId,
+        },
+      },
+    });
   }
+
+  const result = await this.prisma.notification.updateMany({
+    where: {
+      read: false,
+      OR: conditions,
+    },
+    data: {
+      read: true,
+    },
+  });
+
+  return {
+    message: `${result.count} notifications marquées comme lues.`,
+    updatedCount: result.count,
+  };
+}
+
+ async countUnreadNotifications(userId: number): Promise<number> {
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!user) throw new NotFoundException(`Utilisateur ${userId} introuvable`);
+
+  const conditions: any[] = [
+    {
+      appointment: {
+        vehicle: {
+          userId,
+        },
+      },
+    },
+    {
+      intervention: {
+        appointment: {
+          vehicle: {
+            userId,
+          },
+        },
+      },
+    },
+  ];
+
+  if (user.role === 'PROVIDER') {
+    conditions.push({
+      piece: {
+        category: {
+          providerId: userId,
+        },
+      },
+    });
+  }
+
+  const count = await this.prisma.notification.count({
+    where: {
+      read: false,
+      OR: conditions,
+    },
+  });
+
+  return count;
+}
+
 }
