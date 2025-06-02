@@ -231,7 +231,7 @@ async updateCategory(id: number, dto: CreateCategoryDto) {
         return updatedOrder;
       }*/
     
-async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[] }) {
+async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[], discount?: { value: number, type: 'percentage' | 'fixed' } }) {
   const orderDate = new Date();
 
   // Vérifier la disponibilité de chaque pièce
@@ -254,8 +254,10 @@ async placeOrderSelling(dto: { pieces: { pieceId: number, quantity: number }[] }
     this.prisma.order.create({
       data: {
         date: orderDate,
-        status: 'RESERVED', // ou Status.RESERVED si importé
-        ordertype: 'SELLING', // ou StatusOrder.SELLING si importé
+        status: 'RESERVED',
+        ordertype: 'SELLING',
+        discount: dto.discount?.value,
+        discountType: dto.discount?.type,
       },
     }),
   ]);
@@ -401,10 +403,15 @@ async cancelOrderSelling(id: number) {
     const pieceTotal = orderPiece.quantity * orderPiece.piece.price;
     return acc + pieceTotal;
   }, 0);
-let finalTotal = total;
-if (order.discount && order.discount !== 0) {
-  finalTotal = total - (total * order.discount) / 100;
-}
+
+  let finalTotal = total;
+  if (order.discount && order.discount !== 0) {
+    if (order.discountType === 'percentage') {
+      finalTotal = total - (total * order.discount) / 100;
+    } else {
+      finalTotal = total - order.discount;
+    }
+  }
   // Créer la facture
   const invoice = await this.prisma.invoice.create({
     data: {

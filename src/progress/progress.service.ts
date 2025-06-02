@@ -40,7 +40,7 @@ export class ProgressService {
     throw new BadRequestException('An intervention is already associated with this appointment');
   }
 
-  // Vérifier que la quantité de chaque pièce est disponible en stock
+  // Vérifier la disponibilité des pièces
   if (dto.pieces && dto.pieces.length > 0) {
     for (const piece of dto.pieces) {
       const dbPiece = await this.prisma.piece.findUnique({
@@ -59,60 +59,77 @@ export class ProgressService {
     }
   }
 
-  // Créer l’intervention
-  const intervention = await this.prisma.intervention.create({
-    data: {
-      description: dto.description,
-      startDate: new Date(),
-      endDate: new Date(dto.endDate),
-      price: dto.price,
-      status: Status.IN_PROGRESS,
-      appointmentId: appointment.id,
-    },
+  // Récupérer la location liée au rendez-vous via la table position
+  const position = await this.prisma.position.findFirst({
+    where: { appointmentId: appointment.id },
   });
 
-  // Associer les pièces à l’intervention
-  if (dto.pieces && dto.pieces.length > 0) {
-    const interventionPiecesData = dto.pieces.map(piece => ({
-      pieceId: piece.id,
-      quantity: piece.quantity,
-      totalPrice: piece.price * piece.quantity,
-      interventionId: intervention.id,
-    }));
-
-    await this.prisma.interventionPiece.createMany({
-      data: interventionPiecesData,
+  // Lancer la transaction
+  return this.prisma.$transaction(async (tx) => {
+    // Créer l’intervention
+    const intervention = await tx.intervention.create({
+      data: {
+        description: dto.description,
+        startDate: new Date(),
+        endDate: new Date(dto.endDate),
+        price: dto.price,
+        status: Status.IN_PROGRESS,
+        appointmentId: appointment.id,
+      },
     });
 
-    // Décrémenter le stock des pièces
-    for (const piece of dto.pieces) {
-      await this.prisma.piece.update({
-        where: { id: piece.id },
-        data: {
-          stock: {
-            decrement: piece.quantity,
+    // Associer les pièces
+    if (dto.pieces && dto.pieces.length > 0) {
+      const interventionPiecesData = dto.pieces.map(piece => ({
+        pieceId: piece.id,
+        quantity: piece.quantity,
+        totalPrice: piece.price * piece.quantity,
+        interventionId: intervention.id,
+      }));
+
+      await tx.interventionPiece.createMany({
+        data: interventionPiecesData,
+      });
+
+      for (const piece of dto.pieces) {
+        await tx.piece.update({
+          where: { id: piece.id },
+          data: {
+            stock: {
+              decrement: piece.quantity,
+            },
           },
-        },
+        });
+      }
+    }
+
+    // Mettre à jour le statut du rendez-vous
+    await tx.appointment.update({
+      where: { id: appointment.id },
+      data: { status: Status.IN_PROGRESS },
+    });
+
+    // ✅ Mettre à jour la location en OCCUPIED
+    if (position?.locationId) {
+      await tx.location.update({
+        where: { id: position.locationId },
+        data: { status: 'OCCUPIED' },
       });
     }
-  }
 
-  // Mettre à jour le statut du rendez-vous
-  await this.prisma.appointment.update({
-    where: { id: appointment.id },
-    data: { status: Status.IN_PROGRESS },
+    // Créer une notification
+    await tx.notification.create({
+      data: {
+        message: `Votre intervention est commencée à ${new Date().toLocaleString()}.`,
+        type: 'Intervention commence',
+        appointmentId: appointment.id,
+      },
+    });
+
+    return intervention;
   });
-
-  await this.prisma.notification.create({
-    data: {
-      message: `Votre intervention est commencée à ${intervention.startDate}.`,
-      type: 'Intervention commence',
-      appointmentId: appointment.id,
-    },
-  });
-
-  return intervention;
 }
+
 
   
   

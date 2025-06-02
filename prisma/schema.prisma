@@ -214,6 +214,7 @@
     date      DateTime
     status    Status
     discount  Int ?
+    discountType String? 
     userId    Int ?
     user      User ?          @relation(fields: [userId], references: [id], onDelete: Cascade)
     orderPieces OrderPiece[] // Liste des pièces associées à cette commande

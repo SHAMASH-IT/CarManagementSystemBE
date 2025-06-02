@@ -89,19 +89,27 @@ export class AuthService {
 
   // 🔑 Fonction pour réinitialiser le mot de passe
   async resetPassword(token: string, newPassword: string) {
-    try {
-      const { email } = await this.jwt.verifyAsync(token, { secret: process.env.JWT_SECRET });
+  try {
+    const { email } = await this.jwt.verifyAsync(token, {
+      secret: process.env.JWT_SECRET,
+    });
 
-      const hash = await bcrypt.hash(newPassword, 10);
+    const hash = await bcrypt.hash(newPassword, 10);
 
-      await this.prisma.user.update({
-        where: { email },
-        data: { hash },
-      });
+    await this.prisma.user.update({
+      where: { email },
+      data: { hash },
+    });
 
-      return { message: 'Mot de passe réinitialisé avec succès' };
-    } catch (err) {
-      throw new ForbiddenException('Lien de réinitialisation invalide ou expiré');
+    return { message: 'Mot de passe réinitialisé avec succès' };
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      throw new ForbiddenException('Lien expiré, veuillez demander un nouveau mot de passe.');
+    } else if (err.name === 'JsonWebTokenError') {
+      throw new ForbiddenException('Lien de réinitialisation invalide.');
+    } else {
+      throw new ForbiddenException('Erreur de vérification du lien.');
     }
   }
+}
 }

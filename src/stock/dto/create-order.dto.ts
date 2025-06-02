@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsPositive } from 'class-validator';
+import { IsInt, IsOptional, IsPositive, IsString } from 'class-validator';
 
 export class CreateOrderDto {
   @IsInt()
@@ -14,5 +14,8 @@ export class CreateOrderDto {
    @IsOptional()
     @IsInt()
     discount?: number;
+@IsOptional()
+@IsString()
+discountType?: string;
 
 }
